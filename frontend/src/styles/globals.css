@@ -1,0 +1,18 @@
+html,
+body,
+#__next {
+  height: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Thin scrollbars for the wide periodontal grid */
+.perio-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+.perio-scroll::-webkit-scrollbar-thumb {
+  background: var(--mantine-color-gray-4);
+  border-radius: 6px;
+}
