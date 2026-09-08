@@ -1,708 +1,643 @@
-# Dental Charting System
+# Patient Management & Dental Charting Application
 
-A patient-management and dental-charting web application for a single dental
-organization. Its focus is three clinical charts — a **Dental Investigation
-Chart**, a **Tooth Surface Chart**, and a **Gingival / Periodontal Examination
-Chart** — with every finding persisted in MongoDB so nothing is lost on refresh.
+It's a patient-management tool for a dental clinic. You can add a patient, open their profile, and record clinical findings using three charts instead of paper: a tooth-by-tooth condition chart, a tooth-surface chart for recording findings on specific areas of a tooth, and a complete gum-health examination chart.
 
-> ## ⚠️ This is a technical/educational assignment, not a clinical tool
->
-> This project was built as a take-home engineering exercise. It is **not** a
-> clinical decision-support system and must not be used for patient care. The
-> periodontal and dental domain models are **deliberately simplified** (6 sites
-> per tooth instead of the full clinical set, one finding per surface, a
-> single-formula CAL, no radiographs, no charting history). Where a real clinical
-> assumption was needed it is documented in
-> [Dental Domain Assumptions](#10-dental-domain-assumptions) — treat those as
-> reasonable simplifications, not clinical guidance.
+Everything is saved to MongoDB through a FastAPI backend, so the data is still available even after refreshing or reopening the application.
 
-Authentication is intentionally out of scope (single organization, trusted
-network).
+The application includes three main dental charts:
 
----
+* Dental Investigation Chart
+* Tooth Surface Chart
+* Gingival / Periodontal Examination Chart
 
-## Table of contents
-
-1. [Project Overview](#1-project-overview)
-2. [Architecture](#2-architecture)
-3. [Technology Stack](#3-technology-stack)
-4. [Prerequisites](#4-prerequisites)
-5. [Backend Setup](#5-backend-setup)
-6. [Frontend Setup](#6-frontend-setup)
-7. [MongoDB Setup](#7-mongodb-setup)
-8. [Environment Variables](#8-environment-variables)
-9. [Running Locally](#9-running-locally)
-10. [Dental Domain Assumptions](#10-dental-domain-assumptions)
-11. [Known Limitations](#11-known-limitations)
-12. [Future Improvements](#12-future-improvements)
-- [API Summary](#api-summary)
+The main focus of the implementation was the dental charting functionality, particularly making the charts simple to understand and easy to interact with while ensuring that all the recorded information is properly saved.
 
 ---
 
 ## 1. Project Overview
 
-| Area | What it does |
-|------|--------------|
-| **Patients** | Home page lists all patients with server-side search (name / phone / patient ID) and pagination. Create via a reusable modal form; a backend-generated ID (`PAT-<year>-<5 digits>`, e.g. `PAT-2026-00001`) is assigned atomically. A patient profile page has Overview + three chart tabs. Edit and delete are supported; deleting a patient also deletes that patient's three chart documents. |
-| **Dental Investigation Chart** | FDI tooth grid with two layers — *Current Condition* and *Treatment Required* (and a "Both" view). Click a tooth → a drawer opens to add / edit / remove tooth-level findings (caries, crown, root canal treated, missing, …). Permanent / primary dentition toggle. |
-| **Tooth Surface Chart** | Pick a tooth → a 5-zone surface diagram (Mesial / Distal / Buccal-or-Labial / Lingual / Occlusal-or-Incisal) → select one or more surfaces → apply a surface finding. Anterior vs posterior surface sets are enforced on the server. Permanent / primary toggle. |
-| **Gingival / Periodontal Chart** | Spreadsheet-style grid: 6 measurement sites per tooth (Facial/Buccal + Lingual × Mesial / Mid / Distal) with Pocket Depth, Gingival Margin, computed CAL, Bleeding on Probing, Plaque, Suppuration, plus per-tooth Mobility and Furcation. Inline editing into a local draft; one explicit **Save** writes the whole chart; an unsaved-changes guard blocks navigation while dirty. Permanent dentition only. |
-| **Persistence** | All patient and chart data is stored in MongoDB. Reloading or reopening the app restores everything. |
+The application has two main parts:
+
+* **Frontend:** React / Next.js
+* **Backend:** FastAPI (Python)
+* **Database:** MongoDB
+
+### Main features
+
+* View a list of patients
+* Search and paginate patients
+* Add a new patient
+* Automatically generate a unique Patient ID
+* View and edit patient information
+* View a patient's dental charts
+* Record and edit dental investigation findings
+* Record findings for individual tooth surfaces
+* Record gingival / periodontal measurements
+* Save chart information to MongoDB
+* Continue working with the same data after refreshing or reopening the application
+* Responsive UI with reusable components
+* Basic loading, validation and error handling
+
+Authentication was not implemented because the assignment specifies that the application can be treated as operating under a single organization.
 
 ---
 
-## 2. Architecture
+## 2. Technology Stack
 
-### Backend — `Route → Service → Repository → MongoDB`
+### Frontend
 
-```
-backend/app/
-├── main.py                 app factory: CORS + request-logging middleware,
-│                           global exception handlers, /api/v1 router,
-│                           lifespan = connect Mongo + ensure indexes,
-│                           plus meta routes GET / and GET /health
-├── api/
-│   ├── router.py           APIRouter(prefix="/api/v1") — aggregates 4 routers
-│   ├── dependencies.py     builds a service (with its repositories) per request
-│   └── routes/             THIN handlers: parse request → call ONE service → envelope()
-│       ├── patients.py
-│       ├── dental_chart.py
-│       ├── surface_chart.py
-│       └── gingival_chart.py
-├── services/               ALL business logic (ID allocation, finding merges,
-│                           CAL, "patient must exist", cascade delete)
-│   ├── patient_service.py
-│   ├── patient_id_service.py
-│   ├── dental_chart_service.py
-│   ├── surface_chart_service.py
-│   └── gingival_chart_service.py
-├── repositories/           ALL MongoDB access; targeted `$set` on `teeth.<fdi>`
-│   ├── base.py             shared per-patient chart-document repository
-│   ├── counter_repository.py
-│   ├── patient_repository.py
-│   ├── dental_chart_repository.py
-│   ├── surface_chart_repository.py
-│   └── gingival_chart_repository.py
-├── schemas/                Pydantic v2 request/response models
-├── validators/             reusable field + dental validation
-│   ├── patient_validator.py
-│   └── chart_validator.py
-├── constants/dental.py     single source of truth: FDI teeth, surfaces,
-│                           finding vocab, perio sites, measurement ranges, CAL
-├── middleware/
-│   ├── exception_handler.py   AppError / RequestValidationError / DuplicateKeyError → envelope
-│   └── request_logging.py     logs "METHOD path -> status (ms)"
-├── core/                   config (pydantic-settings), error hierarchy,
-│                           response-envelope helpers, logging
-└── db/
-    ├── mongodb.py          single shared async AsyncMongoClient
-    └── indexes.py          indexes created on startup
-```
+* Next.js 14
+* React 18
+* TypeScript
+* Mantine UI
+* TanStack Query
+* Axios
+* Day.js
 
-Storage model: **one document per patient per chart**, with `teeth` stored as an
-object keyed by FDI number (`{"teeth": {"16": {...}}}`). A chart is read whole in
-one query; per-tooth writes use `{"$set": {"teeth.16.…": …}}` so they do not
-rewrite the document or clobber sibling teeth.
+### Backend
 
-### Frontend — Next.js (Pages Router), feature-based
-
-> **Deviation from a plain React + Vite setup:** a typical brief for this kind of
-> app expects **React + Vite + React Router**. This frontend is built on
-> **Next.js 14 with the Pages Router** instead. The reason is a direct
-> instruction during development to use Next.js with page-based routing. The
-> parts of the conventional design that matter are preserved: a **feature-based**
-> folder structure, a **centralized API client**, and **TanStack Query** for all
-> server state. What actually differs is only the routing/build layer —
-> file-based routing under `src/pages/` instead of a React Router route config,
-> and `next dev` / `next build` instead of the Vite dev server and bundler. There
-> is **no Vite config anywhere in the repo**.
-
-```
-frontend/src/
-├── pages/                          ROUTING ONLY (thin shells)
-│   ├── _app.tsx                    Mantine + TanStack Query providers + AppLayout
-│   ├── _document.tsx               Mantine ColorSchemeScript
-│   ├── index.tsx                   "/"                    → patient list
-│   └── patients/[patientId].tsx    "/patients/:patientId" → profile + chart tabs
-├── app/
-│   ├── providers/AppProviders.tsx  QueryClientProvider + MantineProvider + Notifications
-│   ├── config/env.ts               reads NEXT_PUBLIC_API_BASE_URL once
-│   └── router/routes.ts            typed path builders + tab list
-├── components/
-│   ├── common/                     PageHeader, EmptyState, LoadingState, ErrorState,
-│   │                               ConfirmDialog, SearchInput
-│   ├── layout/                     AppLayout, Header
-│   ├── feedback/notify.ts          toast helpers
-│   └── dental/ArchRow.tsx          shared FDI arch layout primitive (used by
-│                                   the dental + surface charts)
-├── constants/dental/               teeth.ts, surfaces.ts, findings.ts,
-│                                   periodontal.ts — mirror of backend enums
-├── features/
-│   ├── patients/                   components/ hooks/ services/ types/ utils/
-│   ├── dental-chart/               components/ hooks/ services/ types/
-│   ├── surface-chart/              components/ hooks/ services/ types/
-│   └── gingival-chart/             components/ hooks/ services/ types/
-│                                   (hooks/useGingivalDraft.ts = useReducer draft)
-├── services/
-│   ├── api-client.ts               axios instance; unwraps { success, data, message };
-│   │                               throws a normalized ApiError on any failure
-│   ├── endpoints.ts                URL templates (relative to API_BASE_URL)
-│   └── query-client.ts             QueryClient factory + query-key registry
-└── hooks/useUnsavedChangesPrompt.ts   route + beforeunload guard for the perio grid
-```
-
-**State management:** server data lives in **TanStack Query** (one query key per
-resource; chart mutations return the whole updated chart and patch the cache with
-`setQueryData`). Local UI uses `useState`. The periodontal grid — hundreds of
-cells edited before one save — uses a **`useReducer` draft** (`useGingivalDraft`)
-with dirty-tracking, a single bulk `PUT`, and a navigation guard. There is **no
-global client store** (no Redux/Zustand).
-
----
-
-## 3. Technology Stack
-
-### Backend (`backend/requirements.txt`, exact versions)
-
-| Package | Version | Role |
-|---------|---------|------|
-| `fastapi` | 0.141.1 | web framework |
-| `starlette` | 1.6.0 | ASGI toolkit (FastAPI dependency; also used for middleware) |
-| `uvicorn` | 0.52.4 | ASGI server |
-| `pydantic` | 2.13.5 | schemas / validation |
-| `pydantic-settings` | 2.7.1 | typed environment configuration |
-| `pydantic_core` | 2.46.5 | Pydantic core (pinned) |
-| `pymongo` | 4.18.0 | MongoDB driver — uses the **async** `AsyncMongoClient` |
-| `dnspython` | 2.8.0 | required for `mongodb+srv://` (Atlas) URIs |
-| `python-dotenv` | 1.2.3 | `.env` loading |
-| `email-validator` | 2.2.0 | `EmailStr` validation |
-| `anyio` | 4.15.1 | async support |
-| `annotated-types`, `h11`, `idna`, `click`, `typing_extensions`, `typing-inspection` | pinned | transitive |
-| **dev:** `pytest` | 8.3.4 | tests |
-| **dev:** `pytest-asyncio` | 0.25.2 | async tests |
-| **dev:** `httpx` | 0.28.1 | test client dependency |
-
-### Frontend (`frontend/package.json`, exact versions)
-
-| Package | Version | Role |
-|---------|---------|------|
-| `next` | 14.2.35 | React framework (Pages Router) |
-| `react` / `react-dom` | 18.3.1 | UI runtime |
-| `@mantine/core` / `hooks` / `form` / `dates` / `notifications` | 7.13.4 | UI component library |
-| `@tanstack/react-query` | 5.59.16 | server-state management |
-| `axios` | 1.7.7 | HTTP client |
-| `dayjs` | 1.11.13 | date formatting (also a Mantine `dates` peer) |
-| `@tabler/icons-react` | 3.19.0 | icons |
-| **dev:** `typescript` | 5.6.3 | types |
-| **dev:** `@types/node` | 20.16.11 | Node types |
-| **dev:** `@types/react` / `@types/react-dom` | 18.3.11 / 18.3.1 | React types |
+* Python
+* FastAPI
+* Pydantic
+* PyMongo (async MongoDB client)
+* Uvicorn
 
 ### Database
 
-MongoDB (works with **MongoDB Atlas** or a **local `mongod`**). The repository
-uses the following collections, all created/indexed automatically on first start:
-`patients`, `counters`, `dental_investigations`, `surface_findings`,
-`gingival_examinations`.
+* MongoDB
+* MongoDB Atlas can be used, or MongoDB can be run locally
 
 ---
 
-## 4. Prerequisites
+## 3. Project Structure
 
-| Tool | Version used in development | Minimum |
-|------|----------------------------|---------|
-| **Python** | 3.14.7 | 3.11+ |
-| **Node.js** | 24.19.0 | 18.17+ (required by Next.js 14.2) |
-| **npm** | 12.0.2 | any version bundled with a supported Node |
-| **MongoDB** | Atlas M0 free cluster (a local `mongod` on `:27017` also works) | 6.0+ recommended |
+The project is divided into separate frontend and backend applications.
 
-You also need `git` to clone, and a browser.
+```text
+dental-charting-system/
+│
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   ├── services/
+│   │   ├── repositories/
+│   │   ├── schemas/
+│   │   ├── validators/
+│   │   ├── constants/
+│   │   ├── middleware/
+│   │   ├── core/
+│   │   └── db/
+│   ├── scripts/
+│   ├── tests/
+│   ├── requirements.txt
+│   └── .env.example
+│
+├── frontend/
+│   ├── src/
+│   │   ├── pages/
+│   │   ├── components/
+│   │   ├── features/
+│   │   ├── services/
+│   │   ├── constants/
+│   │   └── hooks/
+│   ├── package.json
+│   └── .env.local.example
+│
+└── README.md
+```
+
+The backend is separated into routes, services and repositories so that the API layer does not contain all of the business logic.
+
+On the frontend, the code is organized mainly by feature, with separate areas for patients, dental charts, surface charts and gingival charts.
 
 ---
 
-## 5. Backend Setup
+## 4. Patient Management
 
-From the repository root:
+### Patient List
+
+The home page displays the patients belonging to the organization.
+
+It includes:
+
+* Patient name
+* Patient ID
+* Basic patient information
+* Search
+* Pagination
+* Option to open the patient's profile
+* Add Patient button
+
+### Add Patient
+
+A patient can be created using the Add Patient form.
+
+The form includes basic information such as:
+
+* First Name
+* Last Name
+* Date of Birth
+* Gender
+* Phone Number
+* Email
+* Address
+
+The Patient ID is generated automatically by the backend, so the user does not need to enter it.
+
+The generated format is:
+
+```text
+PAT-2026-00001
+PAT-2026-00002
+PAT-2026-00003
+```
+
+The ID generation is handled on the backend to avoid duplicate IDs when multiple requests happen at the same time.
+
+### Patient Profile
+
+Each patient has an individual profile page.
+
+The profile contains:
+
+* Patient information
+* Edit patient details
+* Dental Investigation Chart
+* Tooth Surface Chart
+* Gingival / Periodontal Chart
+
+Patient information and chart information are stored in MongoDB.
+
+---
+
+# 5. Dental Investigation Chart
+
+The dental investigation chart uses the **FDI tooth numbering system**.
+
+Both permanent and primary teeth are supported.
+
+The user can:
+
+1. Select a tooth from the chart.
+2. Open the finding panel.
+3. Add or edit findings for that tooth.
+4. Remove findings when required.
+5. View the current state of the tooth directly on the chart.
+
+Some of the supported findings include:
+
+* Caries
+* Missing
+* Filled
+* Crown
+* Root Canal Treated
+* Fractured
+* Implant
+* Extraction Required
+* Healthy
+* Other
+
+Findings can also be marked as either:
+
+* **Current Condition**
+* **Treatment Required**
+
+This makes it possible to distinguish between an existing condition and something that needs treatment.
+
+The chart also provides a Permanent / Primary dentition switch.
+
+---
+
+# 6. Tooth Surface Chart
+
+The surface chart allows findings to be recorded against individual surfaces of a tooth.
+
+The user first selects a tooth and then selects the required surface or surfaces.
+
+The supported surfaces are:
+
+### Posterior teeth
+
+* Mesial
+* Distal
+* Buccal
+* Lingual
+* Occlusal
+
+### Anterior teeth
+
+* Mesial
+* Distal
+* Labial
+* Lingual
+* Incisal
+
+The application also validates the surface based on the type of tooth. For example, an anterior tooth cannot have an Occlusal surface selected.
+
+Surface findings currently include:
+
+* Caries
+* Restoration
+* Sealant
+* Wear
+* Fracture
+* Healthy
+* Other
+
+The selected findings are saved in MongoDB and are loaded again when the patient is reopened.
+
+For maxillary teeth, the Lingual surface is displayed as **Palatal** in the UI, while the backend stores it using the common `lingual` value.
+
+---
+
+# 7. Gingival / Periodontal Examination Chart
+
+The gingival chart was the most domain-specific part of the assignment.
+
+I used a spreadsheet-style chart so that measurements can be entered directly against the teeth.
+
+For each tooth, the chart contains six measurement sites:
+
+* Buccal - Mesial
+* Buccal - Mid
+* Buccal - Distal
+* Lingual - Mesial
+* Lingual - Mid
+* Lingual - Distal
+
+For each site, the following information can be recorded:
+
+* Pocket Depth
+* Gingival Margin
+* Bleeding on Probing
+* Plaque
+* Suppuration
+
+Additional information can be recorded at the tooth level:
+
+* Mobility
+* Furcation
+* Notes
+
+The chart currently focuses on permanent dentition.
+
+### CAL calculation
+
+Clinical Attachment Loss (CAL) is calculated automatically from Pocket Depth and Gingival Margin.
+
+The formula used in the application is:
+
+```text
+CAL = Pocket Depth + Gingival Margin
+```
+
+CAL is calculated by the application and is not entered manually.
+
+For example:
+
+```text
+Pocket Depth = 4 mm
+Gingival Margin = 1 mm
+
+CAL = 5 mm
+```
+
+The Gingival Margin value is treated as recession in this implementation. A positive value represents recession, while a negative value represents the gingival margin being coronal to the CEJ.
+
+### Saving the chart
+
+The periodontal chart uses a local draft while the user is editing multiple cells.
+
+The user can make several changes and then click **Save** to save the chart.
+
+If there are unsaved changes, the application also warns the user before leaving the page.
+
+---
+
+# 8. Data Persistence
+
+All patient and chart information is stored through the FastAPI backend.
+
+MongoDB contains separate collections for:
+
+```text
+patients
+counters
+dental_investigations
+surface_findings
+gingival_examinations
+```
+
+Each chart is associated with a patient using the Patient ID.
+
+The application does not rely only on frontend state. After saving information, refreshing the browser or reopening the patient loads the saved information from the backend.
+
+---
+
+# 9. Prerequisites
+
+The following are required to run the application locally:
+
+* Python 3.11 or newer
+* Node.js 18.17 or newer
+* npm
+* MongoDB 6.0+ or MongoDB Atlas
+* Git
+* A modern web browser
+
+---
+
+# 10. MongoDB Setup
+
+The application can use either MongoDB Atlas or a local MongoDB installation.
+
+### Option 1: MongoDB Atlas
+
+Create a MongoDB Atlas cluster and obtain the connection string.
+
+Then add it to:
+
+```text
+backend/.env
+```
+
+Example:
+
+```env
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/
+DATABASE_NAME=dental_charting
+```
+
+No manual collection creation is required. The application creates the required collections and indexes when the backend starts.
+
+### Option 2: Local MongoDB
+
+If MongoDB is installed locally, the default configuration can be:
+
+```env
+MONGODB_URI=mongodb://localhost:27017
+DATABASE_NAME=dental_charting
+```
+
+Make sure MongoDB is running before starting the backend.
+
+---
+
+# 11. Backend Setup
+
+From the project root:
 
 ```powershell
 cd backend
+```
 
-# 1. Create and activate a virtual environment
+Create a virtual environment:
+
+```powershell
 python -m venv venv
-venv\Scripts\Activate.ps1            # PowerShell
-#  - Git Bash / WSL:   source venv/Scripts/activate
-#  - macOS / Linux:    source venv/bin/activate
-#  - if PowerShell blocks the script:  Set-ExecutionPolicy -Scope Process -Bypass  then re-run
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Create your local env file (does NOT overwrite an existing one)
-Copy-Item -Path .env.example -Destination .env      # PowerShell
-#  - bash:   cp -n .env.example .env
-#  Then edit .env and set MONGODB_URI (see "Environment Variables" below).
-
-# 4. Run the API (auto-reload)
-uvicorn app.main:app --reload --port 8000
-#  - if `uvicorn` is "not recognized", the venv isn't active; use:
-#    venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
-- API base URL: `http://localhost:8000/api/v1`
-- Interactive API docs (Swagger): `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
-
-On startup you should see log lines confirming
-`Connected to MongoDB database 'dental_charting'` and `MongoDB indexes ensured`.
-
-### Run the backend tests
+Activate it:
 
 ```powershell
-cd backend
 venv\Scripts\Activate.ps1
-pytest -q
 ```
 
-Covers Patient ID generation (format, sequential increment, concurrency with a
-fake counter repository) and the patient / chart validators. **27 tests.**
+Install the required packages:
+
+```powershell
+pip install -r requirements.txt
+```
+
+Create the environment file:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Update the MongoDB connection string in `.env`.
+
+Then start the FastAPI server:
+
+```powershell
+uvicorn app.main:app --reload --port 8000
+```
+
+The backend will be available at:
+
+```text
+http://localhost:8000
+```
+
+FastAPI also provides Swagger API documentation at:
+
+```text
+http://localhost:8000/docs
+```
+
+Health check:
+
+```text
+http://localhost:8000/health
+```
 
 ---
 
-## 6. Frontend Setup
+# 12. Frontend Setup
 
-From the repository root:
+Open another terminal from the project root:
 
 ```powershell
 cd frontend
-
-# 1. Install dependencies
-npm install
-
-# 2. (Optional) create the local env file
-Copy-Item -Path .env.local.example -Destination .env.local     # PowerShell
-#  - bash:   cp .env.local.example .env.local
-#  Only needed if the backend is NOT on http://localhost:8000/api/v1.
-#  The app falls back to that URL when NEXT_PUBLIC_API_BASE_URL is unset.
-
-# 3. Run the dev server
-npm run dev
 ```
 
-- App: `http://localhost:3000`
-- If port 3000 is taken, Next.js will offer the next free port (e.g. 3001). The
-  backend's `.env.example` already allows both `3000` and `3001` in
-  `CORS_ORIGINS`.
-
-Other scripts: `npm run build` (production build), `npm run start` (serve the
-build), `npm run typecheck` (`tsc --noEmit`).
-
----
-
-## 7. MongoDB Setup
-
-The app connects with whatever `MONGODB_URI` you put in `backend/.env`. Both
-options below work; **this project was developed against MongoDB Atlas**, and the
-committed `.env.example` ships a **local** placeholder.
-
-### Option A — MongoDB Atlas (recommended, matches how this was built)
-
-1. Create a free account at <https://www.mongodb.com/cloud/atlas> and create a
-   **free M0 cluster**.
-2. **Database Access** → add a database user (username + password).
-3. **Network Access** → add your current IP address (or `0.0.0.0/0` for local
-   development only).
-4. **Clusters → Connect → Drivers** → copy the connection string. It looks like:
-   ```
-   mongodb+srv://<user>:<password>@<cluster>.xxxxx.mongodb.net/?appName=<name>
-   ```
-5. Put it in `backend/.env` as `MONGODB_URI` and set `DATABASE_NAME=dental_charting`.
-6. Start the backend. It creates the collections and indexes on first run; no
-   manual schema setup is required.
-
-To browse the data: Atlas → your cluster → **Browse Collections** → database
-`dental_charting`.
-
-### Option B — Local MongoDB
-
-1. Install **MongoDB Community Server** and ensure `mongod` is running on
-   `localhost:27017` (the default).
-2. In `backend/.env`:
-   ```
-   MONGODB_URI=mongodb://localhost:27017
-   DATABASE_NAME=dental_charting
-   ```
-3. Start the backend. Collections and indexes are created automatically.
-
-### What gets created
-
-| Collection | Contents |
-|------------|----------|
-| `patients` | one document per patient; `patient_id` unique index, name + phone indexes |
-| `counters` | sequence documents, `_id` like `patient:2026`, field `seq` |
-| `dental_investigations` | one document per patient; `patient_id` unique index |
-| `surface_findings` | one document per patient; `patient_id` unique index |
-| `gingival_examinations` | one document per patient; `patient_id` unique index |
-
-A helper script is included to inspect the database:
+Install dependencies:
 
 ```powershell
-cd backend
-venv\Scripts\Activate.ps1
-python -m scripts.inspect_db                 # counts + patient list
-python -m scripts.inspect_db PAT-2026-00001  # full dump: patient + all 3 charts
+npm install
 ```
 
----
+If required, create the environment file:
 
-## 8. Environment Variables
-
-**Never commit real secrets.** `backend/.env` and `frontend/.env.local` are
-git-ignored (see [.gitignore verification](#gitignore-verification)); only the
-`*.example` files are committed, with placeholder values.
-
-### Backend — every variable read by `app/core/config.py`
-
-| Variable | Required | Default | Purpose |
-|----------|----------|---------|---------|
-| `MONGODB_URI` | **Yes** (no default; app fails to start without it) | — | MongoDB connection string (`mongodb://…` local or `mongodb+srv://…` Atlas). **Secret.** |
-| `DATABASE_NAME` | No | `dental_charting` | Database name used for all collections. |
-| `APP_ENV` | No | `development` | `development` or `production` (only affects an `is_production` helper / the `/` response). |
-| `LOG_LEVEL` | No | `INFO` | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`. |
-| `CORS_ORIGINS` | No | `http://localhost:3000` | Comma-separated list of allowed browser origins. A JSON array is also accepted. |
-
-`backend/.env.example` (placeholders only — safe to commit):
-
-```dotenv
-MONGODB_URI=mongodb://localhost:27017
-DATABASE_NAME=dental_charting
-APP_ENV=development
-LOG_LEVEL=INFO
-CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+```powershell
+Copy-Item .env.local.example .env.local
 ```
 
-### Frontend — every variable read by the client
+The default API URL is:
 
-| Variable | Required | Default (in `app/config/env.ts`) | Purpose |
-|----------|----------|----------------------------------|---------|
-| `NEXT_PUBLIC_API_BASE_URL` | No | `http://localhost:8000/api/v1` | Base URL of the FastAPI API, **including** the `/api/v1` prefix. A trailing slash is stripped. |
-
-`frontend/.env.local.example` (safe to commit):
-
-```dotenv
+```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
-There are no other frontend environment variables and no frontend secrets.
+Start the frontend:
 
-<a id="gitignore-verification"></a>
-### .gitignore verification
+```powershell
+npm run dev
+```
 
-Confirmed with `git check-ignore` and `git ls-files`:
+The application will normally be available at:
 
-| Path | Ignored by | Tracked in git? |
-|------|-----------|-----------------|
-| `backend/.env` | root `.gitignore` (`.env`) | No |
-| `frontend/.env.local` | `frontend/.gitignore` (`.env*.local`) | No |
-| `backend/venv/` | root `.gitignore` (`venv/`) | No |
-| `frontend/node_modules/` | `frontend/.gitignore` (`node_modules/`) | No |
-| `frontend/.next/` | `frontend/.gitignore` (`.next/`) | No |
-| `backend/.env.example`, `frontend/.env.local.example` | — | **Yes** (placeholders only) |
-
-The only `.env*` file tracked by git is `backend/.env.example`.
+```text
+http://localhost:3000
+```
 
 ---
 
-## 9. Running Locally
+# 13. Running the Application
 
-Two terminals, from the repository root.
+After starting both the backend and frontend:
 
-**Terminal 1 — backend (PowerShell):**
+### Terminal 1
 
 ```powershell
 cd backend
-python -m venv venv                       # first time only
 venv\Scripts\Activate.ps1
-pip install -r requirements.txt           # first time only
-Copy-Item -Path .env.example -Destination .env    # first time only, then edit MONGODB_URI
 uvicorn app.main:app --reload --port 8000
 ```
 
-**Terminal 2 — frontend (PowerShell):**
+### Terminal 2
 
 ```powershell
 cd frontend
-npm install                               # first time only
 npm run dev
 ```
 
-**Equivalent on macOS / Linux / Git Bash:**
+Then open:
 
-```bash
-# backend
-cd backend
-python -m venv venv && source venv/bin/activate      # or venv/Scripts/activate on Git Bash
-pip install -r requirements.txt
-cp -n .env.example .env                               # then edit MONGODB_URI
-uvicorn app.main:app --reload --port 8000
-
-# frontend (new terminal)
-cd frontend
-npm install
-npm run dev
+```text
+http://localhost:3000
 ```
 
-Then open **`http://localhost:3000`**, click **Add Patient**, open the profile,
-switch between the **Dental Investigation / Surface / Gingival** tabs, record some
-findings, and **refresh the browser** — everything persists.
+A simple flow to test the application is:
 
-Quick backend check without the UI:
-
-```bash
-curl http://localhost:8000/health
-curl "http://localhost:8000/api/v1/patients?limit=5"
-```
-
-> **Port already in use?** If `uvicorn` reports the address is unavailable and
-> nothing of yours is running, a previous dev server's socket may still be held
-> by the OS for a short time. Wait a minute, or run on another port
-> (`--port 8001`) and set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8001/api/v1`
-> in `frontend/.env.local`.
+1. Add a patient.
+2. Open the patient profile.
+3. Add a finding in the Dental Investigation Chart.
+4. Add a finding in the Surface Chart.
+5. Enter some measurements in the Gingival Chart.
+6. Save the changes.
+7. Refresh the browser.
+8. Reopen the patient and verify that the information is still available.
 
 ---
 
-## 10. Dental Domain Assumptions
+# 14. API
 
-All of the following are implemented in `backend/app/constants/dental.py` and
-mirrored in `frontend/src/constants/dental/`.
+The backend exposes REST APIs under:
 
-### Tooth numbering system — FDI (ISO 3950)
-
-The **FDI World Dental Federation two-digit notation** is used everywhere (chart
-layout, storage keys, validation).
-
-- **Permanent:** quadrants `1`=upper-right, `2`=upper-left, `3`=lower-left,
-  `4`=lower-right; tooth position `1`–`8` counted from the midline. →
-  `11–18, 21–28, 31–38, 41–48` (32 teeth).
-- **Primary:** quadrants `5`=UR, `6`=UL, `7`=LL, `8`=LR; position `1`–`5`. →
-  `51–55, 61–65, 71–75, 81–85` (20 teeth).
-
-**Why FDI:** each tooth is two digits that encode quadrant + position, it is
-unambiguous across both dentitions, and it maps directly onto a quadrant-based
-chart UI without a lookup table. (The Universal Numbering System, 1–32 for
-adults, does not carry quadrant information in the number and needs separate
-handling for primary teeth.)
-
-### Adult vs primary dentition representation
-
-- **Dental Investigation Chart** and **Tooth Surface Chart**: a Permanent /
-  Primary toggle; findings are stored against the exact FDI number, so both
-  dentitions coexist for the same patient.
-- **Gingival / Periodontal Chart**: **permanent dentition only** in the UI (the
-  grid renders `PERMANENT_UPPER` / `PERMANENT_LOWER`). The data model and the API
-  accept any valid FDI tooth, but the periodontal grid does not render primary
-  teeth.
-- Anterior teeth = positions `1`–`3` (incisors, canine); posterior = `4`–`8`.
-
-### Tooth surface terminology
-
-| Tooth type | Surfaces recorded |
-|------------|-------------------|
-| **Posterior** (premolars, molars) | Mesial, Distal, **Buccal**, Lingual, **Occlusal** |
-| **Anterior** (incisors, canines) | Mesial, Distal, **Labial**, Lingual, **Incisal** |
-
-- The server validates the surface against the tooth: `occlusal` is rejected on
-  an anterior tooth, `incisal` / `labial` on a posterior tooth
-  (`is_valid_surface`).
-- The oral surface is stored as `lingual` for every tooth; the frontend **labels
-  it "Palatal" for maxillary teeth** (display only, no separate value).
-- Surface-level finding vocabulary: `caries`, `restoration`, `sealant`, `wear`,
-  `fracture`, `healthy`, `other`.
-
-### Dental Investigation finding vocabulary
-
-`caries`, `missing`, `filled`, `crown`, `root_canal_treated`, `fractured`,
-`implant`, `extraction_required`, `healthy`, `other`.
-
-Each finding also carries a **status**: `current` (an existing condition) or
-`planned` (treatment required). This is what drives the chart's two panels
-("Current Condition" vs "Treatment Required").
-
-### Gingival / periodontal chart assumptions
-
-- **6 measurement sites per tooth** = two aspects (`buccal`, `lingual`) × three
-  positions (`mesial`, `mid`, `distal`). This is a simplification of full
-  periodontal charting.
-- **Per site:** Probing Depth (`pd`), Gingival Margin (`gm`), Bleeding on Probing
-  (`bop`, boolean), Plaque (`plaque`, boolean), Suppuration (`suppuration`,
-  boolean).
-- **Per tooth:** Mobility (`0`–`3`, Miller-style), Furcation (`0`–`3`,
-  Glickman-style), free-text notes. Furcation is only offered for **multi-rooted
-  teeth** — all molars plus the maxillary first premolars (`has_furcation`).
-- **Measurement ranges (inclusive), enforced by the schema and validators:**
-  `pd` `0`–`15` mm, `gm` `-5`–`10` mm, `mobility` `0`–`3`, `furcation` `0`–`3`.
-- Editing is done inline into a client-side draft; a single **Save** writes the
-  entire chart in one request (there is no per-keystroke or per-cell save from
-  the UI).
-
-### CAL calculation — exact formula implemented
-
-```
-CAL = PD + GM        (only when both PD and GM are present; otherwise CAL is null)
+```text
+/api/v1
 ```
 
-Implemented in `calculate_cal(probing_depth, gingival_margin)` in
-`backend/app/constants/dental.py` and `calcCal(pd, gm)` in
-`frontend/src/constants/dental/periodontal.ts`.
+The main API areas are:
 
-**Assumption about GM:** the Gingival Margin value is recorded as **recession** —
-the position of the gingival margin relative to the CEJ, **positive when the
-margin is apical to the CEJ** (true recession, root surface exposed) and
-**negative when the margin is coronal to the CEJ** (no recession / gingival
-overgrowth).
+```text
+/api/v1/patients
+/api/v1/patients/{patient_id}/dental-chart
+/api/v1/patients/{patient_id}/surface-chart
+/api/v1/patients/{patient_id}/gingival-chart
+```
 
-- Example: PD `4` mm, GM `1` mm (1 mm recession) → **CAL `5` mm**.
-- Example: PD `3` mm, GM `-2` mm (margin 2 mm coronal to the CEJ) → **CAL `1` mm**.
+FastAPI's Swagger UI can be used to view and test all available endpoints:
 
-CAL is **computed on read** (backend response field `cal`; frontend cell) and is
-**never stored and never accepted as input**.
+```text
+http://localhost:8000/docs
+```
 
 ---
 
-## 11. Known Limitations
+# 15. Dental Domain Assumptions
 
-Stated plainly — these are real gaps, not polish items:
+Since I did not have previous dental-domain experience, I researched the terminology and charting approach and made a few practical assumptions for this assignment.
 
-- **No authentication / authorization / users / audit trail.** Anyone who can
-  reach the API can read and write all data. This is intentional for the
-  assignment (single organization) but makes it unsuitable for real use.
-- **The gingival/periodontal chart UI is permanent-dentition only.** Primary
-  teeth are not rendered in that grid even though the storage and API accept
-  them.
-- **One finding per tooth surface.** You cannot record, say, `caries` *and*
-  `restoration` as distinct findings on the same surface; the workaround is
-  `other` + a note.
-- **Chart writes are last-write-wins at tooth granularity.** There is no
-  optimistic locking, no per-field merge, and no conflict detection. Two people
-  editing the same tooth at the same time will overwrite each other.
-- **Gingival save is a full-chart bulk `PUT`.** The backend also exposes
-  `PATCH /gingival-chart/teeth/{tooth_number}` for single-tooth updates, but the
-  frontend never calls it — it always sends the whole chart.
-- **No charting history / versioning.** Only the current state of each chart is
-  stored; there is no "compare recordings across dates" for periodontal data.
-- **Test coverage is narrow.** There are **27 backend unit tests** covering
-  Patient ID generation and the validators only. There are **no frontend tests**,
-  **no service/repository/route tests**, and **no integration tests** against a
-  real MongoDB.
-- **Simplified periodontal model.** 6 sites per tooth (not the full clinical
-  site set), single-formula CAL, no mucogingival junction / attached gingiva, no
-  radiographic bone levels.
-- **Response timestamps are UTC without an explicit offset suffix.**
-- **Minimal API hardening.** No rate limiting, no request-body size limits;
-  pagination `limit` is capped at 100 but there is no other abuse protection.
-- **CORS is credential-enabled against an explicit origin list** from
-  `CORS_ORIGINS` (no wildcard); origins not listed are rejected by the browser.
+### Tooth numbering
 
----
+The application uses the **FDI two-digit numbering system**.
 
-## 12. Future Improvements
+Permanent teeth:
 
-Confirmed **not** implemented in the current codebase:
-
-- **Authentication & authorization** — user accounts, roles/permissions,
-  per-organization data isolation (multi-tenant).
-- **Automated tests** — a frontend test suite (component + interaction), backend
-  service/repository/route tests, and integration tests against an ephemeral
-  MongoDB.
-- **Periodontal charting history** — store dated recordings and add the
-  "compare recordings" view.
-- **Primary-dentition support in the gingival chart UI.**
-- **Multiple findings per tooth surface.**
-- **Concurrency handling** — optimistic locking / version fields / conflict
-  resolution on chart edits.
-- **Debounced autosave** for the periodontal grid, in addition to explicit Save.
-- **Richer clinical data** — tooth image / radiograph uploads, treatment
-  planning, notes history.
-- **Export** — PDF / printable chart export.
-- **Observability** — structured request/response logging with correlation IDs
-  and metrics (only a lightweight `METHOD path -> status (ms)` logger exists).
-- **Data protection** — encryption at rest, PII handling policy, consent
-  tracking.
-- **A formal accessibility audit.** ARIA labels, keyboard-operable chart
-  controls, focus/selected states, and non-colour-only tooth encoding are
-  implemented, but not independently audited.
-
----
-
-## API Summary
-
-- **Base path:** `/api/v1` (mounted by `APIRouter(prefix="/api/v1")`).
-- **Meta routes (not under `/api/v1`):** `GET /` and `GET /health`.
-- **Interactive docs:** `GET /docs` (Swagger UI), `GET /openapi.json`.
-
-### Routes
-
-| Method | Path | Body | Notes |
-|--------|------|------|-------|
-| `GET` | `/api/v1/patients` | — | query params `search`, `page` (≥1), `limit` (1–100); `search` matches first/last name, phone, or patient ID (case-insensitive) |
-| `POST` | `/api/v1/patients` | `PatientCreate` | returns **201**; `patient_id` is generated server-side |
-| `GET` | `/api/v1/patients/{patient_id}` | — | 404 → `error_code: PATIENT_NOT_FOUND` |
-| `PUT` | `/api/v1/patients/{patient_id}` | `PatientUpdate` (all fields optional) | partial update |
-| `DELETE` | `/api/v1/patients/{patient_id}` | — | also deletes this patient's 3 chart documents |
-| `GET` | `/api/v1/patients/{patient_id}/dental-chart` | — | returns the full chart (empty `teeth: {}` if none yet) |
-| `PUT` | `/api/v1/patients/{patient_id}/dental-chart/teeth/{tooth_number}` | `{ dentition?, findings[], notes }` | create-or-replace the whole tooth entry |
-| `DELETE` | `/api/v1/patients/{patient_id}/dental-chart/teeth/{tooth_number}` | — | clear one tooth |
-| `GET` | `/api/v1/patients/{patient_id}/surface-chart` | — | full chart |
-| `PUT` | `/api/v1/patients/{patient_id}/surface-chart/teeth/{tooth_number}` | `{ surfaces: { <surface>: { finding, notes } \| null } }` | **partial**: only listed surfaces change; `null` clears a surface |
-| `GET` | `/api/v1/patients/{patient_id}/gingival-chart` | — | full chart; every site includes a computed `cal` |
-| `PUT` | `/api/v1/patients/{patient_id}/gingival-chart` | `{ teeth: { <tooth_number>: { buccal, lingual, mobility, furcation, notes } } }` | **bulk** save of the whole chart (the path the UI uses) |
-| `PATCH` | `/api/v1/patients/{patient_id}/gingival-chart/teeth/{tooth_number}` | `ToothPerioInput` | single-tooth update (exposed by the API; **not used by the frontend**) |
-
-Invalid tooth numbers, invalid surface/tooth combinations, and out-of-range
-measurements are rejected with **422** and a specific `error_code`
-(`INVALID_TOOTH_NUMBER`, `INVALID_SURFACE`, `MEASUREMENT_OUT_OF_RANGE`, …).
-
-### Response shape
-
-**Success** — every endpoint returns this envelope:
-
-```json
-{
-  "success": true,
-  "data": { "...": "endpoint-specific payload" },
-  "message": "Human-readable summary"
-}
+```text
+11 - 18
+21 - 28
+31 - 38
+41 - 48
 ```
 
-The list endpoint's `data` is `{ "items": [...], "meta": { "page", "limit", "total", "total_pages" } }`.
+Primary teeth:
 
-**Error** — produced by the global exception handlers:
-
-```json
-{
-  "success": false,
-  "message": "Patient 'PAT-2026-00099' was not found",
-  "error_code": "PATIENT_NOT_FOUND",
-  "details": []
-}
+```text
+51 - 55
+61 - 65
+71 - 75
+81 - 85
 ```
 
-Status codes: `400` generic client error, `404` not found, `409`
-`PATIENT_ID_CONFLICT` (duplicate key), `422` validation
-(`VALIDATION_ERROR` or a domain-specific code; `details` carries the field
-errors), `500` `INTERNAL_ERROR` for anything unhandled.
+This provides a consistent way of identifying teeth in both the UI and database.
 
-### Patient ID generation
+### Surface terminology
 
-`PAT-<year>-<5-digit sequence>` (e.g. `PAT-2026-00001`). Generated **only on the
-backend** by `PatientIdService`: a single atomic
-`counters.find_one_and_update({_id: "patient:<year>"}, {$inc: {seq: 1}}, upsert=True)`
-gives each concurrent request a distinct number; the **unique index on
-`patients.patient_id`** is the backstop, with a bounded retry (max 3) if a
-collision ever occurs. The frontend never generates or sends an ID.
+Anterior and posterior teeth do not use exactly the same terminology for all surfaces.
+
+Therefore:
+
+* Posterior teeth use Occlusal
+* Anterior teeth use Incisal
+* Posterior teeth use Buccal
+* Anterior teeth use Labial
+* Lingual is used as the stored value, with Palatal displayed where appropriate for upper teeth
+
+### Periodontal chart
+
+For the periodontal chart, I used six sites per tooth:
+
+```text
+Buccal:  Mesial / Mid / Distal
+Lingual: Mesial / Mid / Distal
+```
+
+This is a simplified representation intended for this assignment rather than a complete clinical periodontal system.
 
 ---
 
-## Further reading
+# 16. Known Limitations
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the up-front design (schemas, component tree, state plan, domain decisions).
-- [`docs/EXPLANATION.md`](docs/EXPLANATION.md) — how it works and why, per chart.
-- [`docs/WALKTHROUGH.md`](docs/WALKTHROUGH.md) — every layer and call traced end to end.
+There are a few areas that could be improved if this were developed further.
+
+* Authentication and authorization are not implemented.
+* The application currently assumes a single organization.
+* The gingival chart supports permanent teeth in the UI only.
+* Only one finding can currently be stored per tooth surface.
+* There is no chart history or comparison between different examination dates.
+* The periodontal chart currently uses a simplified six-site model.
+* There is no conflict handling if two users edit the same chart at the same time.
+* Automated frontend and integration tests could be added.
+* The application is not intended for real clinical use.
+
+These limitations were kept within the scope of the assignment so that more attention could be given to the main dental chart interactions.
+
+---
+
+# 17. Future Improvements
+
+If I had more time to continue developing the application, I would consider adding:
+
+* User authentication and role-based access
+* Support for multiple dental organizations
+* Examination history and comparison between visits
+* Primary dentition support in the periodontal chart
+* Multiple findings on the same tooth surface
+* Autosave for periodontal chart changes
+* Better conflict handling for simultaneous editing
+* PDF / printable dental chart export
+* Image and radiograph attachments
+* More comprehensive automated tests
+* Accessibility testing and improvements
+* More detailed treatment planning functionality
+
+---
+
+## 18. Notes
+
+This project was developed as a technical assignment to demonstrate frontend, backend, database and domain-understanding skills.
+
+The dental models and chart interactions are simplified representations created for the purpose of the assignment and should not be considered a clinical system.
