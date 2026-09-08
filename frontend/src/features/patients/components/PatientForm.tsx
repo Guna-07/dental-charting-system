@@ -53,8 +53,15 @@ export function PatientForm({
         return null;
       },
       gender: (v) => (v ? null : "Gender is required"),
-      phone_number: (v) =>
-        (v.replace(/\D/g, "").length >= 6 ? null : "Enter a valid phone number"),
+      phone_number: (v) => {
+        if (!/^\+?[0-9()][0-9\s\-().]*$/.test(v.trim())) {
+          return "Only digits, spaces and + - ( ) are allowed";
+        }
+        const digits = v.replace(/\D/g, "").length;
+        if (digits < 10) return "Phone number must have at least 10 digits";
+        if (digits > 15) return "Phone number must have at most 15 digits";
+        return null;
+      },
       email: (v) =>
         !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : "Enter a valid email",
     },

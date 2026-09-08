@@ -47,18 +47,34 @@ class EmergencyContact(BaseModel):
     phone_number: str | None = None
 
 
-class PatientBase(BaseModel):
-    first_name: str = Field(..., min_length=1, max_length=80)
-    last_name: str = Field(..., min_length=1, max_length=80)
+class PatientFields(BaseModel):
+    """The patient field set with NO input validation.
+
+    Used for responses: data already stored in the database is returned as-is,
+    even if it predates a stricter validation rule. Input schemas below add the
+    constraints and validators.
+    """
+
+    first_name: str
+    last_name: str
     date_of_birth: date
     gender: Gender
-    phone_number: str = Field(..., min_length=6, max_length=32)
+    phone_number: str
     email: EmailStr | None = None
     address: Address | None = None
     emergency_contact: EmergencyContact | None = None
-    medical_notes: str | None = Field(default=None, max_length=2000)
+    medical_notes: str | None = None
     allergies: list[str] = Field(default_factory=list)
     blood_group: BloodGroup | None = None
+
+
+class PatientBase(PatientFields):
+    """Shared input schema — field constraints + reusable validators."""
+
+    first_name: str = Field(..., min_length=1, max_length=80)
+    last_name: str = Field(..., min_length=1, max_length=80)
+    phone_number: str = Field(..., min_length=10, max_length=32)
+    medical_notes: str | None = Field(default=None, max_length=2000)
 
     @field_validator("first_name", "last_name")
     @classmethod
@@ -89,7 +105,7 @@ class PatientUpdate(BaseModel):
     last_name: str | None = Field(default=None, min_length=1, max_length=80)
     date_of_birth: date | None = None
     gender: Gender | None = None
-    phone_number: str | None = Field(default=None, min_length=6, max_length=32)
+    phone_number: str | None = Field(default=None, min_length=10, max_length=32)
     email: EmailStr | None = None
     address: Address | None = None
     emergency_contact: EmergencyContact | None = None
@@ -113,7 +129,9 @@ class PatientUpdate(BaseModel):
         return validate_dob(value) if value is not None else None
 
 
-class PatientResponse(PatientBase):
+class PatientResponse(PatientFields):
+    """Output schema — no input validation runs on stored data."""
+
     patient_id: str
     age: int
     created_at: datetime

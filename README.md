@@ -263,7 +263,8 @@ pytest -q
 ```
 
 Covers Patient ID generation (format, sequential increment, concurrency with a
-fake counter repository) and the patient / chart validators. **27 tests.**
+fake counter repository), the patient / chart validators, and the patient
+input/output schemas. **36 tests.**
 
 ---
 
@@ -588,10 +589,16 @@ Stated plainly — these are real gaps, not polish items:
   frontend never calls it — it always sends the whole chart.
 - **No charting history / versioning.** Only the current state of each chart is
   stored; there is no "compare recordings across dates" for periodontal data.
-- **Test coverage is narrow.** There are **27 backend unit tests** covering
-  Patient ID generation and the validators only. There are **no frontend tests**,
-  **no service/repository/route tests**, and **no integration tests** against a
-  real MongoDB.
+- **Test coverage is narrow.** There are **36 backend unit tests** covering
+  Patient ID generation, the patient/chart validators, and the patient
+  input/output schemas. There are **no frontend tests**, **no
+  service/repository/route tests**, and **no integration tests** against a real
+  MongoDB.
+- **Read schemas are tolerant of legacy data.** Response models do not re-run
+  input validation, so a patient whose stored phone number predates the current
+  10–15 digit rule still lists and opens normally — but saving an **edit** to
+  that patient requires correcting the phone number first (the update goes
+  through the input validator). There is no data-migration step.
 - **Simplified periodontal model.** 6 sites per tooth (not the full clinical
   site set), single-formula CAL, no mucogingival junction / attached gingiva, no
   radiographic bone levels.
