@@ -1,16 +1,121 @@
 # Patient Management & Dental Charting Application
 
-It's a patient-management tool for a dental clinic. You can add a patient, open their profile, and record clinical findings using three charts instead of paper: a tooth-by-tooth condition chart, a tooth-surface chart for recording findings on specific areas of a tooth, and a complete gum-health examination chart.
+A patient-management tool for a single dental clinic. You can add a patient, open
+their profile, and record clinical findings using three charts instead of paper:
+a tooth-by-tooth condition chart, a tooth-surface chart, and a gum-health
+(periodontal) examination chart.
 
-Everything is saved to MongoDB through a FastAPI backend, so the data is still available even after refreshing or reopening the application.
+Everything is saved to MongoDB through a FastAPI backend, so the data survives a
+refresh or reopening the application. The main focus was the charting
+functionality — making the charts easy to read and interact with, and making
+sure everything recorded is persisted.
 
-The application includes three main dental charts:
+> **This is a technical assignment, not a clinical tool.** The dental and
+> periodontal models are deliberately simplified (see
+> [Dental Domain Assumptions](#dental-domain-assumptions)). It assumes a single
+> dental organization and does not implement authentication, because that was not
+> required.
 
-* Dental Investigation Chart
-* Tooth Surface Chart
-* Gingival / Periodontal Examination Chart
+---
 
-The main focus of the implementation was the dental charting functionality, particularly making the charts simple to understand and easy to interact with while ensuring that all the recorded information is properly saved.
+## Setup
+
+Platform-specific instructions live in the two sub-READMEs — start there:
+
+| | |
+|---|---|
+| **[backend/README.md](backend/README.md)** | Python venv, dependencies, `.env`, MongoDB connection, running FastAPI, Swagger, full API details, backend architecture |
+| **[frontend/README.md](frontend/README.md)** | Node/npm setup, install, environment variables, dev server, frontend structure, commands |
+
+The one-screen version:
+
+```bash
+# backend
+cd backend
+python -m venv venv
+# Windows: venv\Scripts\Activate.ps1   |   macOS/Linux: source venv/bin/activate
+pip install -r requirements.txt
+cp -n .env.example .env          # then set MONGODB_URI
+uvicorn app.main:app --reload --port 8000
+
+# frontend (new terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+Open **http://localhost:3000** (backend must be running first).
+API docs: **http://localhost:8000/docs**.
+
+---
+
+## Understanding the Dental Charts
+
+The application uses three different charts because each one records a different level of dental information.
+
+### 1. Dental Investigation Chart
+
+This gives an overall view of the condition of each tooth. A dentist can select a tooth and record its current condition or whether treatment may be required.
+
+For example, a tooth can be marked as having **caries, a crown, root canal treatment, or being missing**.
+
+Both permanent and primary teeth are supported.
+
+### 2. Tooth Surface Chart
+
+A tooth has multiple surfaces, and a finding may apply only to one specific part of the tooth.
+
+This chart allows the user to select a tooth, choose one or more surfaces, and record a finding for those surfaces.
+
+The main surfaces are:
+
+* **Mesial** — toward the center of the dental arch
+* **Distal** — away from the center
+* **Buccal / Labial** — toward the cheek or lips
+* **Lingual / Palatal** — toward the tongue or palate
+* **Occlusal** — chewing surface of posterior teeth
+* **Incisal** — biting edge of anterior teeth
+
+This keeps tooth-level findings and surface-level findings independent.
+
+### 3. Gingival / Periodontal Examination Chart
+
+This chart focuses on the health of the gums and the tissues supporting the teeth.
+
+Instead of recording one value for the whole tooth, the examination is recorded at **six sites around each tooth**:
+
+* Buccal: Mesial, Mid, Distal
+* Lingual: Mesial, Mid, Distal
+
+The chart records measurements and observations such as:
+
+* Probing depth
+* Gingival margin
+* Bleeding on probing
+* Plaque
+* Suppuration
+* Mobility
+* Furcation
+
+The application also calculates **Clinical Attachment Level (CAL)** from the recorded probing depth and gingival margin.
+
+Together, the three charts provide three different views of the patient's dental condition:
+
+**Overall tooth condition → Individual tooth surfaces → Gum and periodontal health**
+
+### How the three charts relate
+
+Every chart is keyed by the **same FDI tooth number**, so the three views compose
+per tooth:
+
+* **Dental Investigation** — is this tooth healthy, decayed, crowned, missing…?
+* **Surface Chart** — *which surface* of that tooth is affected (mesial, occlusal…)?
+* **Gingival Chart** — what do the gum / probing measurements around it look like?
+
+The **patient profile → Overview tab** ties them together: an *Examination
+Summary* (how many findings on each chart), an *Existing Concerns* list that
+merges the non-healthy findings from all three charts by tooth, and *Quick
+Access* buttons that jump straight to a chart.
 
 ---
 
@@ -18,150 +123,157 @@ The main focus of the implementation was the dental charting functionality, part
 
 ### Patient Management
 
-* View all patients from the home page
-* Add a new patient
-* Automatically generate a unique Patient ID
-* View patient details
+* Home page lists all patients, with search and pagination
+* Add a patient through a reusable form; the **Patient ID is generated on the
+  backend** (`PAT-<year>-<5 digits>`, e.g. `PAT-2026-00001`)
+* Open a patient profile; the **Overview tab** rolls up all three charts —
+  finding counts, a merged list of existing concerns by tooth, and quick-access
+  links into each chart
 * Edit patient information
-* Open an individual patient profile
-* Patient information is persisted in MongoDB
+* **Edit and delete a patient directly from the list** (per-row actions);
+  deleting also removes that patient's three charts (backend cascade), behind a
+  confirmation dialog
+* All patient data is persisted in MongoDB
 
 ### Dental Investigation Chart
 
-The Dental Investigation Chart provides a graphical view of the patient's teeth.
-
-It supports:
-
-* Adult dentition
-* Primary dentition
-* Individual tooth selection
-* Recording tooth-level findings
-* Visual indication of selected teeth
-* Viewing and editing existing findings
-* Saving findings to the backend
+Graphical view of the patient's teeth with "Current Condition" and "Treatment
+Required" layers and a permanent / primary dentition toggle (**Primary is only
+enabled for patients aged 13 and under**, derived from the patient's age). Click
+a tooth to record, edit or remove tooth-level findings (caries, crown, root canal
+treated, missing, …) in a panel that opens **inline below the chart** and scrolls
+into view. Teeth with findings and the selected tooth are shown visually; each
+change is saved to the backend per tooth.
 
 ### Tooth Surface Chart
 
-The Surface Chart is used when a finding needs to be recorded against a specific surface of a tooth.
-
-Supported surfaces include:
-
-* Mesial
-* Distal
-* Buccal / Facial
-* Lingual / Palatal
-* Occlusal / Incisal
-
-The chart allows the user to:
-
-* Select a tooth
-* Select one or more surfaces
-* Enter a finding
-* Save the finding
-* View existing findings
-* Edit previously saved findings
-
-This was implemented separately from the general tooth condition chart so that tooth-level and surface-level information can be maintained independently.
+For findings specific to one surface of a tooth. Surfaces: Mesial, Distal,
+Buccal / Labial, Lingual / Palatal, Occlusal (posterior) / Incisal (anterior).
+Select a tooth, pick one or more surfaces on a 5-zone diagram, record a finding,
+save it, and edit or clear it later. Same age-gated permanent / primary toggle
+as above. Kept separate from the tooth-condition chart so tooth-level and
+surface-level data stay independent.
 
 ### Gingival / Periodontal Examination Chart
 
-The Gingival Examination Chart is used to record gum and periodontal findings.
+A spreadsheet-style grid around each tooth (permanent dentition), with six sites
+per tooth — {buccal, lingual} × {mesial, mid, distal}:
 
-The chart provides a structured examination grid for recording findings around individual teeth.
+* Probing depth and gingival margin per site (0–15 mm / −5–10 mm)
+* Bleeding on probing, plaque, suppuration per site; mobility and furcation per
+  tooth (fixed 0–3 selectors)
+* Clinical Attachment Level, **computed** from probing depth + gingival margin
 
-The implementation includes:
+Upper and Lower arches are shown **one at a time via a toggle** to keep the grid
+compact (the whole chart is still saved and exported). Measurement cells accept
+**numbers only** — digits, plus a leading `−` for the gingival margin — and are
+clamped to their range. Editing is inline; a single **Save** writes the whole
+chart, and the app warns before navigating away with unsaved changes.
 
-* Periodontal probing measurements
-* Multiple examination sites around a tooth
-* Plaque information
-* Bleeding on probing
-* Gingival margin measurements
-* Clinical attachment level
-* Mobility
-* Furcation
-* Suppuration
-* Saving examination results
-* Editing existing results
+### Together, the three charts provide three different views of the patient's dental condition:
 
-The main goal was to provide a structured way to enter periodontal findings while keeping the interface manageable for the user.
+Overall tooth condition → Individual tooth surfaces → Gum and periodontal health
+
+### Download as image
+
+Each of the three charts has a **Download image** button that exports the current
+chart view as a PNG (`<chart>-<patient-id>-<date>.png`), rendered client-side
+with `html-to-image`. Horizontally-scrolling grids are expanded to their full
+width for the capture, and the editing panels are omitted from the image.
+
+---
+
+## Application Flow
+
+```text
+Patient List
+     ↓
+Add / Select Patient
+     ↓
+Patient Profile  ──►  Overview
+     ↓
+Chart tabs
+ ┌───────────────────────┐
+ │ Dental Investigation  │
+ │ Surface               │
+ │ Gingival              │
+ └───────────────────────┘
+     ↓
+Save findings  ──►  FastAPI  ──►  MongoDB
+     ↓
+Reopen / refresh  ──►  data reloaded from MongoDB
+```
 
 ---
 
 ## Tech Stack
 
-### Frontend
+| Layer | Choices |
+|---|---|
+| **Frontend** | React 18, **Next.js 14 (Pages Router)**, TypeScript, Mantine UI v7, TanStack Query v5, Axios, html-to-image (chart PNG export) |
+| **Backend** | Python, FastAPI, Pydantic v2, `pydantic-settings`, Uvicorn |
+| **Database** | MongoDB, PyMongo (async `AsyncMongoClient`) |
+| **Tooling** | Git / GitHub, npm, Python virtual environment, pytest |
 
-* React
-* Next.js
-* TypeScript
-* Mantine UI
-* TanStack Query
-
-### Backend
-
-* Python
-* FastAPI
-* Pydantic
-* Uvicorn
-
-### Database
-
-* MongoDB
-* PyMongo
-
-### Development
-
-* Git / GitHub
-* npm
-* Python virtual environment
+> **Framework note:** a typical brief for this kind of app expects React + Vite +
+> React Router. This frontend uses **Next.js with the Pages Router** at the
+> client's request. The conventional parts are kept — a feature-based folder
+> structure, a centralized API client, and TanStack Query for all server state —
+> only the routing/build layer differs (file-based routing under `src/pages/`,
+> no Vite config in the repo). See [frontend/README.md](frontend/README.md).
 
 ---
 
 ## Project Structure
 
-The project is divided into frontend and backend applications.
-
 ```text
 dental-charting-system/
 │
-├── backend/
+├── README.md                  ← this file
+│
+├── backend/                   FastAPI service  (see backend/README.md)
 │   ├── app/
-│   │   ├── api/
-│   │   ├── models/
-│   │   ├── schemas/
-│   │   ├── services/
-│   │   ├── repositories/
-│   │   └── main.py
-│   │
+│   │   ├── api/routes/         thin HTTP handlers
+│   │   ├── services/           business logic
+│   │   ├── repositories/       MongoDB access
+│   │   ├── schemas/            Pydantic request/response models
+│   │   ├── validators/         reusable field + chart validation
+│   │   ├── constants/dental.py FDI teeth, surfaces, findings, ranges, CAL
+│   │   ├── middleware/         exception handler + request logging
+│   │   ├── core/               config, errors, response envelope, logging
+│   │   ├── db/                 Mongo client + index setup
+│   │   └── main.py             app factory
+│   ├── tests/
 │   ├── requirements.txt
-│   └── .env
+│   └── .env.example
 │
-├── frontend/
-│   ├── components/
-│   ├── pages/
-│   ├── features/
-│   ├── hooks/
-│   ├── lib/
-│   └── package.json
-│
-└── README.md
+└── frontend/                  Next.js app  (see frontend/README.md)
+    └── src/
+        ├── pages/             routing only (index = list, patients/[id] = profile)
+        ├── app/               providers, config, route helpers
+        ├── components/        shared UI: common (ConfirmDialog, DownloadImageButton,
+        │                      SearchInput, …), layout, feedback,
+        │                      dental (ArchRow, DentitionToggle)
+        ├── constants/dental/  mirror of backend dental enums
+        ├── features/          patients, dental-chart, surface-chart, gingival-chart
+        │                      (each: components / hooks / services / types)
+        └── services/          api-client, endpoints, query-client
 ```
 
-The frontend is organized around reusable components and feature-specific logic, while the backend separates API routes, business logic, database access, and data models.
+The frontend is organized around reusable components and per-feature logic; the
+backend separates HTTP routing, business logic, database access, and data models.
 
 ---
 
-# Prerequisites
+## Prerequisites
 
-Before running the application, make sure the following are installed:
-
-* Python 3.10+
-* Node.js 18+
-* npm
-* MongoDB or a MongoDB Atlas account
-* Git
-
-You can check the installed versions using:
+| Tool | Version | Notes |
+|---|---|---|
+| Python | 3.11+ (developed on 3.14) | |
+| Node.js | 18.17+ (developed on 24) | required by Next.js 14.2 |
+| npm | bundled with Node | |
+| MongoDB | Atlas cluster or local `mongod` | |
+| Git | any | |
 
 ```bash
 python --version
@@ -171,445 +283,168 @@ npm --version
 
 ---
 
-# Database Setup
+## Database Setup
 
-The application uses MongoDB for persistent storage.
-
-You can either run MongoDB locally or use MongoDB Atlas.
-
-## Option 1: MongoDB Atlas
-
-1. Create a MongoDB Atlas account.
-2. Create a cluster.
-3. Create a database user.
-4. Allow your IP address in the network access settings.
-5. Copy the MongoDB connection string.
-
-The backend uses the connection string through an environment variable.
-
-Example:
+Set the connection in `backend/.env`:
 
 ```env
+# Atlas
 MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/
 DATABASE_NAME=dental_charting
-```
 
-## Option 2: Local MongoDB
-
-If MongoDB is installed locally, the connection can be configured as:
-
-```env
+# or local
 MONGODB_URI=mongodb://localhost:27017
 DATABASE_NAME=dental_charting
 ```
 
-The required collections are created/used by the application when data is stored.
+Collections and indexes are created automatically on the first backend start —
+no manual schema setup. The full variable list, Atlas walkthrough, and the
+collections/indexes table are in [backend/README.md](backend/README.md).
 
 ---
 
-# Backend Setup
+## Dental Domain Assumptions
 
-Open a terminal and navigate to the backend directory:
+Since this is an assignment rather than a production clinical system, a few
+assumptions were made. They are defined once in
+`backend/app/constants/dental.py` and mirrored in
+`frontend/src/constants/dental/`.
 
-```bash
-cd backend
-```
+### Tooth Numbering
 
-## Create a virtual environment
-
-### Windows
-
-```powershell
-python -m venv venv
-```
-
-Activate it:
-
-```powershell
-.\venv\Scripts\Activate.ps1
-```
-
-### macOS / Linux
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-## Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-## Environment Variables
-
-Create a `.env` file inside the `backend` directory.
-
-Example:
-
-```env
-MONGODB_URI=mongodb://localhost:27017
-DATABASE_NAME=dental_charting
-```
-
-If using MongoDB Atlas, replace `MONGODB_URI` with the Atlas connection string.
-
-## Start the backend
-
-Run:
-
-```bash
-uvicorn app.main:app --reload
-```
-
-The backend will normally be available at:
+The **FDI two-digit system** is used everywhere (chart layout, storage keys,
+validation).
 
 ```text
-http://127.0.0.1:8000
+11 – upper-right central incisor      21 – upper-left central incisor
+16 – upper-right first molar          36 – lower-left first molar
+                                      46 – lower-right first molar
 ```
 
-FastAPI also provides interactive API documentation at:
+* Permanent: `11–18, 21–28, 31–38, 41–48`
+* Primary:   `51–55, 61–65, 71–75, 81–85`
+* Chosen because the two digits encode quadrant + position and work for both
+  dentitions without a lookup table.
 
-```text
-http://127.0.0.1:8000/docs
-```
+### Adult vs Primary Dentition
 
-The `/docs` page can be used to test the REST APIs directly from the browser.
+* The **Dental Investigation** and **Surface** charts have a Permanent / Primary
+  toggle; findings are stored against the exact FDI number. The **Primary option
+  is only enabled for patients aged 13 and under** (derived from the patient's
+  age); above that it is disabled and the chart stays on Permanent.
+* The **Gingival chart UI is permanent-dentition only** (the data model accepts
+  any valid tooth, but the grid renders permanent teeth).
+
+### Tooth Surfaces
+
+| Surface | Meaning |
+|---|---|
+| Mesial | toward the midline |
+| Distal | away from the midline |
+| Buccal / Labial | toward the cheek / lips (facial aspect) |
+| Lingual / Palatal | toward the tongue / palate (shown as "Palatal" for upper teeth) |
+| Occlusal | chewing surface (posterior teeth) |
+| Incisal | biting edge (anterior teeth) |
+
+The backend rejects `occlusal` on an anterior tooth and `incisal` / `labial` on
+a posterior tooth. A tooth can have findings on multiple surfaces; the diagram
+allows multi-selection. One finding per surface is stored.
+
+### Gingival / Periodontal Examination
+
+* 6 sites per tooth = {buccal, lingual} × {mesial, mid, distal}.
+* Per site: probing depth (0–15 mm), gingival margin (−5–10 mm), bleeding on
+  probing, plaque, suppuration.
+* Per tooth: mobility (0–3), furcation (0–3, only shown for multi-rooted teeth),
+  notes.
+* **Clinical Attachment Level formula (as implemented):**
+  `CAL = probing_depth + gingival_margin`, where the gingival margin is recorded
+  as **recession** — positive when the margin is apical to the CEJ, negative when
+  coronal. CAL is computed on read and never stored.
+* These fields represent the examination data needed for the assignment, not a
+  complete clinical periodontal chart.
 
 ---
 
-# Frontend Setup
+## Data Persistence
 
-Open another terminal and navigate to the frontend:
-
-```bash
-cd frontend
-```
-
-Install the dependencies:
-
-```bash
-npm install
-```
-
-Start the development server:
-
-```bash
-npm run dev
-```
-
-The frontend will normally be available at:
-
-```text
-http://localhost:3000
-```
-
-Make sure the FastAPI backend is running before using the application.
+Patient and chart data is stored in MongoDB, one document per patient per chart:
+the patient record + generated ID, tooth-level findings
+(`dental_investigations`), surface-level findings (`surface_findings`), and
+periodontal findings (`gingival_examinations`). When a profile is reopened the
+data is loaded from MongoDB, so the charts do not depend on React state or
+browser refreshes.
 
 ---
 
-# Running the Application
+## UI / UX Decisions
 
-Once both applications are running:
+The charts were built to be usable, not just data-entry forms:
 
-### Backend
-
-```bash
-cd backend
-uvicorn app.main:app --reload
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm run dev
-```
-
-Then open:
-
-```text
-http://localhost:3000
-```
-
-The basic flow is:
-
-```text
-Patient List
-     ↓
-Add / Select Patient
-     ↓
-Patient Profile
-     ↓
-Dental Charts
- ┌───────────────┐
- │ Investigation │
- │ Surface       │
- │ Gingival      │
- └───────────────┘
-     ↓
-Save Findings
-     ↓
-MongoDB
-```
-
----
-
-# API Overview
-
-The frontend communicates with the backend using REST APIs.
-
-The APIs cover:
-
-### Patients
-
-* Create patient
-* Get patients
-* Get patient by ID
-* Update patient
-
-### Dental Findings
-
-* Get dental findings for a patient
-* Create/update tooth-level findings
-
-### Surface Findings
-
-* Get surface findings
-* Create/update surface findings
-* Update findings for selected tooth surfaces
-
-### Gingival Findings
-
-* Get gingival examination data
-* Save/update periodontal findings
-
-The backend validates incoming data using Pydantic models before storing it in MongoDB.
-
----
-
-# Data Persistence
-
-Patient and chart information is stored in MongoDB.
-
-This includes:
-
-* Patient information
-* Generated Patient ID
-* Tooth-level findings
-* Surface-level findings
-* Gingival / periodontal findings
-
-The application loads the saved information again when the patient profile is reopened.
-
-This means chart information is not dependent only on React state or browser refreshes.
-
----
-
-# Dental Domain Assumptions
-
-Since this is a technical assignment rather than a production clinical system, a few assumptions were made while implementing the dental charts.
-
-## Tooth Numbering
-
-The application uses the **FDI two-digit tooth numbering system** for identifying teeth.
-
-For example:
-
-```text
-11 - Upper right central incisor
-16 - Upper right first molar
-21 - Upper left central incisor
-36 - Lower left first molar
-46 - Lower right first molar
-```
-
-Primary teeth are handled separately from adult teeth.
-
-## Tooth Surfaces
-
-The surface chart uses the following terminology:
-
-| Surface           | Meaning                            |
-| ----------------- | ---------------------------------- |
-| Mesial            | Surface toward the midline         |
-| Distal            | Surface away from the midline      |
-| Buccal / Facial   | Surface toward the cheek/lips      |
-| Lingual / Palatal | Surface toward the tongue/palate   |
-| Occlusal          | Chewing surface of posterior teeth |
-| Incisal           | Cutting edge of anterior teeth     |
-
-A tooth can have more than one affected surface, so the interface allows multiple surface selections where appropriate.
-
-## Gingival / Periodontal Examination
-
-The periodontal chart is represented as a structured grid around each tooth.
-
-The implementation uses multiple sites per tooth for recording measurements such as:
-
-* Probing depth
-* Gingival margin
-* Bleeding on probing
-* Plaque
-* Suppuration
-* Mobility
-* Furcation
-* Clinical attachment level
-
-Clinical attachment level is derived from the probing depth and gingival margin relationship.
-
-These fields are intended to represent the examination data required for this assignment and are not intended to replace a complete clinical periodontal charting system.
-
----
-
-# UI / UX Decisions
-
-A major focus of the application was making the dental charts usable rather than treating them as simple data-entry forms.
-
-Some of the decisions include:
-
-* Clear visual separation between patient information and charting
-* Selected and unselected tooth states
+* Clear separation between patient information and charting
+* Distinct default / hover / selected / has-finding / missing tooth states,
+  expressed with more than colour (glyphs, badges, borders, patterns, tooltips)
 * Easy identification of teeth that already contain findings
 * Separate interaction for tooth-level and surface-level findings
-* Structured periodontal examination grid
-* Editable existing findings
-* Responsive layout for different screen sizes
-* Reusable UI components
-* Consistent buttons, forms, dialogs, and feedback states
+* **All three charts share one layout** — the chart on top, the details / finding
+  panel **inline below it** (no slide-in drawers); selecting a tooth scrolls its
+  panel into view
+* Spreadsheet-style periodontal grid with inline editing and one explicit save
+* **Download image** button on every chart (PNG export via `html-to-image`)
+* Patient list rows and cards carry inline **Edit** / **Delete** actions, so a
+  patient can be managed without opening the profile
+* Existing findings editable in place; responsive layout; reusable components;
+  consistent buttons, forms, dialogs, and loading / empty / error states
 
-The charts were designed so that the user can move between teeth and findings without having to leave the patient profile.
-
----
-
-# State Management
-
-The frontend uses React state for local UI interactions and TanStack Query for server-side data.
-
-This separates:
-
-* Temporary UI state
-* Selected tooth/surface state
-* Form state
-* Data fetched from the backend
-* Saved patient and chart information
-
-This also helps avoid keeping the complete application state inside a single large React component.
+State is split so no single component owns everything: React state for local UI,
+**TanStack Query** for all server data, a `useReducer` draft for the periodontal
+grid. No global client store.
 
 ---
 
-# Error Handling and Validation
+## Known Limitations
 
-Basic validation is handled on both the frontend and backend.
+Built as an assignment, so:
 
-Examples include:
-
-* Required patient fields
-* Valid patient information
-* Valid chart data
-* Required tooth selection
-* Valid surface selection
-* Valid periodontal measurements
-
-API errors are handled on the frontend and displayed to the user where appropriate.
-
----
-
-# Known Limitations
-
-This application was built as a technical assignment, so there are some limitations.
-
-### Authentication
-
-Authentication and authorization are not implemented because the assignment assumes a single dental organization.
-
-### Clinical Scope
-
-The dental and periodontal terminology has been simplified to keep the implementation focused on the requested functionality.
-
-It should not be considered a production-ready clinical system.
-
-### Tooth Diagram
-
-The graphical tooth representation is designed for interaction and charting rather than being a detailed anatomical tooth model.
-
-### Advanced Clinical Features
-
-The application does not currently cover advanced features such as:
-
-* Treatment planning
-* Dental procedures history
-* X-ray/image management
-* Prescription management
-* Clinical notes
-* Multi-clinic support
-* User roles and permissions
-* Audit history
+* **No authentication / authorization / audit trail** — assumes a single
+  organization.
+* **Simplified clinical scope** — the dental and periodontal terminology is
+  reduced to the requested functionality; not production-ready.
+* **The tooth diagram is for interaction**, not a detailed anatomical model.
+* **Gingival chart UI is permanent-dentition only.**
+* **One finding per tooth surface** (use "Other" + a note for anything else).
+* **Chart writes are last-write-wins at tooth granularity** — no optimistic
+  locking or conflict detection.
+* **Response schemas are read-tolerant** — a patient whose stored data predates a
+  stricter rule (e.g. a short phone number) still lists and opens, but editing
+  that patient requires fixing the field first.
+* **Tests:** 36 backend unit tests (Patient ID generation, validators, patient
+  schemas). No frontend tests, no integration tests against a real MongoDB.
+* No treatment planning, procedure history, imaging, prescriptions, clinical
+  notes, multi-clinic support, or roles.
 
 ---
 
-# Possible Future Improvements
+## Possible Future Improvements
 
-If this application were extended beyond the assignment, I would consider adding:
-
-* Authentication and role-based access
-* Dentist and staff accounts
-* Treatment planning
-* Appointment management
-* Clinical notes
-* Dental image / X-ray uploads
-* More detailed tooth anatomy
-* More advanced periodontal charting
-* Audit history for chart changes
-* Search and filtering for patients
-* Pagination for large patient lists
-* Frontend automated tests
-* Docker-based local setup
-* Deployment configuration
-* Better accessibility support
+* Authentication and role-based access; dentist / staff accounts
+* Treatment planning and appointment management
+* Clinical notes and dental image / X-ray uploads
+* More detailed tooth anatomy and more advanced periodontal charting
+* Audit history for chart changes; "compare recordings" across dates
+* Primary-dentition support in the gingival chart
+* Frontend automated tests and backend integration tests
+* Docker-based local setup and deployment configuration
+* A full accessibility audit
 
 ---
 
-# Testing
+## Testing
 
-The application can be tested manually using the following flow:
+**Backend:** `cd backend && pytest -q` — 36 unit tests.
 
-1. Open the patient list.
-2. Create a new patient.
-3. Verify that a Patient ID is generated.
-4. Open the patient profile.
-5. Add findings to the Dental Investigation Chart.
-6. Select a tooth and add surface findings.
-7. Enter periodontal/gingival findings.
-8. Save the changes.
-9. Refresh the page.
-10. Reopen the patient.
-11. Verify that the previously saved information is still available.
-12. Edit an existing finding and verify the updated value.
-
-The FastAPI Swagger documentation can also be used to test individual backend endpoints.
-
----
-
-# Notes
-
-This project was developed as a technical assignment for evaluating:
-
-* React / frontend architecture
-* REST API development
-* FastAPI / Python
-* MongoDB data persistence
-* Dental domain understanding
-* Interactive chart design
-* Reusable components
-* Data modeling
-* UI/UX implementation
-
-The application assumes a single dental organization and does not implement authentication because it was not required as part of the assignment.
-
----
-
-# License
-
-This project was created for technical evaluation purposes.
+**Manual end-to-end:** create a patient → confirm the ID is generated and the
+profile opens → add Dental Investigation findings → add surface findings on a
+tooth → enter periodontal measurements and Save → refresh the browser and reopen
+the patient → confirm everything persisted → edit a finding and confirm the
+update. The Swagger UI (`/docs`) can exercise individual endpoints.
