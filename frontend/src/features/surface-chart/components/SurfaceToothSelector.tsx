@@ -23,6 +23,7 @@ function MiniTooth({
   active: boolean;
   onSelect: (t: string) => void;
 }) {
+  const hasFindings = count > 0;
   return (
     <UnstyledButton
       onClick={() => onSelect(toothNumber)}
@@ -34,21 +35,27 @@ function MiniTooth({
         borderRadius: 6,
         border: `${active ? 2.5 : 1}px solid ${
           active
-            ? "var(--mantine-color-teal-6)"
-            : "var(--mantine-color-gray-5)"
+            ? "var(--mantine-color-teal-filled)"
+            : "var(--mantine-color-default-border)"
         }`,
-        background:
-          count > 0
-            ? "var(--mantine-color-teal-1)"
-            : "var(--mantine-color-body)",
+        background: hasFindings
+          ? "var(--mantine-color-teal-light)"
+          : "var(--mantine-color-default)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        position: "relative",
       }}
     >
-      <Text size="10px" fw={600}>
-        {count > 0 ? count : ""}
+      <Text
+        size="11px"
+        fw={700}
+        style={{
+          color: hasFindings
+            ? "var(--mantine-color-teal-light-color)"
+            : "var(--mantine-color-text)",
+        }}
+      >
+        {hasFindings ? count : ""}
       </Text>
     </UnstyledButton>
   );

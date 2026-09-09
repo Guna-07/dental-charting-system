@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { Card, Center, Grid, SegmentedControl, Stack, Text } from "@mantine/core";
+import { useRef, useState } from "react";
+import { Card, Center, Grid, Group, Stack, Text } from "@mantine/core";
 
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { EmptyState } from "@/components/common/EmptyState";
+import { DownloadImageButton } from "@/components/common/DownloadImageButton";
+import { DentitionToggle } from "@/components/dental/DentitionToggle";
 import type { SurfaceFindingType } from "@/constants/dental/findings";
 import { surfacesForTooth, type Surface } from "@/constants/dental/surfaces";
 import type { Dentition } from "@/constants/dental/teeth";
@@ -16,13 +18,19 @@ import {
   useUpdateToothSurfaces,
 } from "../hooks/useSurfaceChart";
 
-export function SurfaceChart({ patientId }: { patientId: string }) {
+interface SurfaceChartProps {
+  patientId: string;
+  patientAge?: number | null;
+}
+
+export function SurfaceChart({ patientId, patientAge }: SurfaceChartProps) {
   const query = useSurfaceChart(patientId);
   const update = useUpdateToothSurfaces(patientId);
 
   const [dentition, setDentition] = useState<Dentition>("permanent");
   const [activeTooth, setActiveTooth] = useState<string | null>(null);
   const [selected, setSelected] = useState<Surface[]>([]);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   const teeth = query.data?.teeth ?? {};
   const entries = activeTooth ? teeth[activeTooth]?.surfaces ?? {} : {};
@@ -74,63 +82,70 @@ export function SurfaceChart({ patientId }: { patientId: string }) {
 
   return (
     <Stack gap="lg">
-      <SegmentedControl
-        value={dentition}
-        onChange={(v) => {
-          setDentition(v as Dentition);
-          setActiveTooth(null);
-        }}
-        data={[
-          { label: "Permanent", value: "permanent" },
-          { label: "Primary", value: "primary" },
-        ]}
-      />
-
-      <Card withBorder padding="lg">
-        <SurfaceToothSelector
-          dentition={dentition}
-          teeth={teeth}
-          activeTooth={activeTooth}
-          onSelect={pickTooth}
+      <Group justify="space-between" wrap="wrap">
+        <DentitionToggle
+          value={dentition}
+          onChange={(v) => {
+            setDentition(v);
+            setActiveTooth(null);
+          }}
+          patientAge={patientAge}
         />
-      </Card>
+        <DownloadImageButton
+          targetRef={exportRef}
+          filename={`surface-chart-${patientId}-${new Date()
+            .toISOString()
+            .slice(0, 10)}`}
+        />
+      </Group>
 
-      {activeTooth ? (
-        <Grid>
-          <Grid.Col span={{ base: 12, md: 5 }}>
-            <Card withBorder padding="lg">
-              <Center>
-                <ToothSurfaceDiagram
+      <Stack gap="lg" ref={exportRef}>
+        <Card withBorder padding="lg">
+          <SurfaceToothSelector
+            dentition={dentition}
+            teeth={teeth}
+            activeTooth={activeTooth}
+            onSelect={pickTooth}
+          />
+        </Card>
+
+        {activeTooth ? (
+          <Grid>
+            <Grid.Col span={{ base: 12, md: 5 }} className="surface-diagram-col">
+              <Card withBorder padding="lg">
+                <Center>
+                  <ToothSurfaceDiagram
+                    toothNumber={activeTooth}
+                    entries={entries}
+                    selected={selected}
+                    onToggle={toggleSurface}
+                  />
+                </Center>
+                <Text size="xs" c="dimmed" ta="center" mt="sm">
+                  Surfaces: {surfacesForTooth(activeTooth).join(" · ")}
+                </Text>
+              </Card>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 7 }} className="no-export">
+              <Card withBorder padding="lg">
+                <SurfaceFindingPanel
                   toothNumber={activeTooth}
                   entries={entries}
                   selected={selected}
-                  onToggle={toggleSurface}
+                  busy={update.isPending}
+                  onApply={apply}
+                  onClear={clearSelected}
                 />
-              </Center>
-              <Text size="xs" c="dimmed" ta="center" mt="sm">
-                Surfaces: {surfacesForTooth(activeTooth).join(" · ")}
-              </Text>
-            </Card>
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 7 }}>
-            <Card withBorder padding="lg">
-              <SurfaceFindingPanel
-                toothNumber={activeTooth}
-                entries={entries}
-                selected={selected}
-                busy={update.isPending}
-                onApply={apply}
-                onClear={clearSelected}
-              />
-            </Card>
-          </Grid.Col>
-        </Grid>
-      ) : (
-        <EmptyState
-          title="Select a tooth"
-          description="Pick a tooth above to view its surfaces and record findings."
-        />
-      )}
+              </Card>
+            </Grid.Col>
+          </Grid>
+        ) : (
+          <EmptyState
+            title="Select a tooth"
+            description="Pick a tooth above to view its surfaces and record findings."
+          />
+        )}
+      </Stack>
     </Stack>
   );
 }

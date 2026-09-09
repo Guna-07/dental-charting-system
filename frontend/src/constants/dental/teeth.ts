@@ -76,3 +76,15 @@ export function archTeeth(dentition: Dentition, arch: ArchName): string[] {
 export function midlineIndex(dentition: Dentition): number {
   return dentition === "primary" ? 5 : 8;
 }
+
+/**
+ * Primary (deciduous) dentition is only clinically relevant for children — the
+ * last primary teeth are normally shed by ~12 (mixed dentition ends around then).
+ * Above this age the Primary chart option is disabled. When the age is unknown
+ * both options stay available.
+ */
+export const MAX_PRIMARY_DENTITION_AGE = 13;
+
+export function primaryDentitionAllowed(age: number | null | undefined): boolean {
+  return age == null || age <= MAX_PRIMARY_DENTITION_AGE;
+}

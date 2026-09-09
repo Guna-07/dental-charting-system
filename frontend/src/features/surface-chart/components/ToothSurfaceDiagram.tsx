@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 
 import {
   SURFACE_ABBREV,
@@ -13,6 +14,17 @@ import type { SurfaceFindingEntry } from "../types/surface-chart.types";
 const SIZE = 150;
 const A = 48; // inner square inset
 const B = SIZE - A;
+
+// All dividers drawn ONCE over the fills (zones have no stroke): four corner
+// diagonals + the inner square. The outer edge is left to the fills meeting the
+// card background, so nothing is clipped by the viewBox.
+const DIVIDERS = [
+  `M0 0 L${A} ${A}`,
+  `M${SIZE} 0 L${B} ${A}`,
+  `M${SIZE} ${SIZE} L${B} ${B}`,
+  `M0 ${SIZE} L${A} ${B}`,
+  `M${A} ${A} H${B} V${B} H${A} Z`,
+].join(" ");
 
 interface ToothSurfaceDiagramProps {
   toothNumber: string;
@@ -32,6 +44,11 @@ export function ToothSurfaceDiagram({
   selected,
   onToggle,
 }: ToothSurfaceDiagramProps) {
+  const theme = useMantineTheme();
+  const dark =
+    useComputedColorScheme("light", { getInitialValueInEffect: true }) === "dark";
+  const dividerColor = dark ? theme.colors.dark[4] : theme.colors.gray[3];
+
   const surfaces = surfacesForTooth(toothNumber);
   const facial = surfaces.includes("buccal") ? "buccal" : "labial";
   const centre = surfaces.includes("occlusal") ? "occlusal" : "incisal";
@@ -80,6 +97,7 @@ export function ToothSurfaceDiagram({
       viewBox={`0 0 ${SIZE} ${SIZE}`}
       role="group"
       aria-label={`Tooth ${toothNumber} surfaces`}
+      style={{ display: "block" }}
     >
       {zones.map((z) => (
         <ToothSurface
@@ -100,6 +118,16 @@ export function ToothSurfaceDiagram({
           onToggle={onToggle}
         />
       ))}
+
+      {/* dividers in one pass — thin, uniform, never blocks clicks */}
+      <path
+        d={DIVIDERS}
+        fill="none"
+        stroke={dividerColor}
+        strokeWidth={1}
+        pointerEvents="none"
+        style={{ pointerEvents: "none" }}
+      />
     </svg>
   );
 }

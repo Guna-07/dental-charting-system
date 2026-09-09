@@ -1,3 +1,5 @@
+import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
+
 import type { Surface } from "@/constants/dental/surfaces";
 import { surfaceFinding, type SurfaceFindingType } from "@/constants/dental/findings";
 
@@ -27,18 +29,33 @@ export function ToothSurface({
   onToggle,
 }: ToothSurfaceProps) {
   const meta = finding ? surfaceFinding(finding) : null;
-  const fill = meta
-    ? `var(--mantine-color-${meta.color}-3)`
-    : "var(--mantine-color-gray-0)";
-  const stroke = selected
-    ? "var(--mantine-color-teal-7)"
-    : "var(--mantine-color-gray-5)";
+  const theme = useMantineTheme();
+  const dark =
+    useComputedColorScheme("light", { getInitialValueInEffect: true }) === "dark";
+  const palette = (name: string) => theme.colors[name] ?? theme.colors.gray;
+
+  // Concrete hex (not `var(--mantine-color-*)`) so the SVG survives html-to-image
+  // export — CSS variables in SVG fill/stroke fall back to black otherwise.
+  const fill = selected
+    ? palette("teal")[1]
+    : meta
+      ? palette(meta.color)[1]
+      : dark
+        ? theme.colors.dark[7]
+        : theme.white;
+
+  const labelColor = selected
+    ? palette("teal")[dark ? 3 : 8]
+    : dark
+      ? theme.colors.dark[2]
+      : theme.colors.gray[6];
 
   const common = {
     fill,
-    stroke,
-    strokeWidth: selected ? 3 : 1,
-    style: { cursor: "pointer" as const },
+    stroke: "none",
+    // outline:none removes the browser's default black focus rectangle that
+    // otherwise boxes the whole SVG shape after a click.
+    style: { cursor: "pointer" as const, outline: "none" },
     onClick: () => onToggle(surface),
     role: "button" as const,
     tabIndex: 0,
@@ -65,8 +82,8 @@ export function ToothSurface({
         textAnchor="middle"
         dominantBaseline="central"
         fontSize={11}
-        fontWeight={600}
-        fill="var(--mantine-color-gray-7)"
+        fontWeight={selected ? 700 : 600}
+        fill={labelColor}
         pointerEvents="none"
       >
         {label}

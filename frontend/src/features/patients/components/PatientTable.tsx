@@ -1,16 +1,23 @@
 import { useRouter } from "next/router";
-import { Badge, Table, Text } from "@mantine/core";
+import { ActionIcon, Badge, Group, Table, Text } from "@mantine/core";
+import { IconPencil, IconTrash } from "@tabler/icons-react";
 
 import { routes } from "@/app/router/routes";
 import { fullName, titleCase } from "@/utils/format";
 
 import type { Patient } from "../types/patient.types";
 
-export function PatientTable({ patients }: { patients: Patient[] }) {
+interface PatientTableProps {
+  patients: Patient[];
+  onEdit: (patient: Patient) => void;
+  onDelete: (patient: Patient) => void;
+}
+
+export function PatientTable({ patients, onEdit, onDelete }: PatientTableProps) {
   const router = useRouter();
 
   return (
-    <Table.ScrollContainer minWidth={640}>
+    <Table.ScrollContainer minWidth={720}>
       <Table highlightOnHover verticalSpacing="sm">
         <Table.Thead>
           <Table.Tr>
@@ -20,6 +27,7 @@ export function PatientTable({ patients }: { patients: Patient[] }) {
             <Table.Th>Gender</Table.Th>
             <Table.Th>Phone</Table.Th>
             <Table.Th>Email</Table.Th>
+            <Table.Th w={96}>Actions</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -40,6 +48,32 @@ export function PatientTable({ patients }: { patients: Patient[] }) {
                 <Text size="sm" c="dimmed">
                   {p.email || "—"}
                 </Text>
+              </Table.Td>
+              <Table.Td>
+                <Group gap={4} wrap="nowrap" justify="flex-end">
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    aria-label={`Edit ${fullName(p.first_name, p.last_name)}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(p);
+                    }}
+                  >
+                    <IconPencil size={16} />
+                  </ActionIcon>
+                  <ActionIcon
+                    variant="subtle"
+                    color="red"
+                    aria-label={`Delete ${fullName(p.first_name, p.last_name)}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(p);
+                    }}
+                  >
+                    <IconTrash size={16} />
+                  </ActionIcon>
+                </Group>
               </Table.Td>
             </Table.Tr>
           ))}

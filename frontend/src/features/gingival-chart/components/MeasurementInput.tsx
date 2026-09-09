@@ -9,10 +9,11 @@ interface MeasurementInputProps {
 }
 
 /**
- * Compact numeric cell for the periodontal grid.
- *  - ArrowUp / ArrowDown increments / decrements within range (perio-software convention)
- *  - empty string clears the value
- *  - out-of-range input is clamped on blur
+ * Compact numeric-only cell for the periodontal grid.
+ *  - only digits are accepted (plus a leading "-" when the range allows it);
+ *    letters and symbols are dropped as you type or paste
+ *  - ArrowUp / ArrowDown step within range (perio-software convention)
+ *  - empty clears the value; out-of-range input is clamped on blur
  */
 export function MeasurementInput({
   value,
@@ -22,18 +23,26 @@ export function MeasurementInput({
   onChange,
 }: MeasurementInputProps) {
   const [text, setText] = useState(value === null ? "" : String(value));
+  const allowNegative = min < 0;
+  const maxLen = Math.max(String(min).length, String(max).length);
 
   useEffect(() => {
     setText(value === null ? "" : String(value));
   }, [value]);
 
+  const sanitize = (raw: string): string => {
+    let s = raw.replace(/[^\d-]/g, "");
+    const negative = allowNegative && s.startsWith("-");
+    s = s.replace(/-/g, "");
+    return (negative ? "-" : "") + s.slice(0, maxLen);
+  };
+
   const commit = (raw: string) => {
-    const trimmed = raw.trim();
-    if (trimmed === "" || trimmed === "-") {
+    if (raw === "" || raw === "-") {
       onChange(null);
       return;
     }
-    const n = Number(trimmed);
+    const n = Number(raw);
     if (Number.isNaN(n)) {
       setText(value === null ? "" : String(value));
       return;
@@ -49,9 +58,11 @@ export function MeasurementInput({
   return (
     <input
       aria-label={ariaLabel}
+      title={`Allowed: ${min} to ${max}`}
       inputMode="numeric"
+      autoComplete="off"
       value={text}
-      onChange={(e) => setText(e.currentTarget.value)}
+      onChange={(e) => setText(sanitize(e.currentTarget.value))}
       onBlur={(e) => commit(e.currentTarget.value)}
       onKeyDown={(e) => {
         if (e.key === "ArrowUp") {

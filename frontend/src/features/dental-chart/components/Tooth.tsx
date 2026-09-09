@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Tooltip } from "@mantine/core";
+import { Tooltip, useComputedColorScheme, useMantineTheme } from "@mantine/core";
 
 import {
   investigationFinding,
@@ -19,9 +19,20 @@ const W = 34;
 const CROWN_H = 30;
 const ROOT_H = 16;
 
-/** A single data-driven tooth glyph with all six visual states. */
+/**
+ * A single data-driven tooth glyph with all six visual states.
+ *
+ * Colours are resolved to concrete hex here (not `var(--mantine-color-*)`) so the
+ * SVG survives `html-to-image` export — CSS variables in SVG fill/stroke
+ * attributes are not resolved by the serializer and fall back to black.
+ */
 export function Tooth({ toothNumber, findings, selected, onSelect }: ToothProps) {
   const [hovered, setHovered] = useState(false);
+  const theme = useMantineTheme();
+  const dark =
+    useComputedColorScheme("light", { getInitialValueInEffect: true }) === "dark";
+
+  const palette = (name: string) => theme.colors[name] ?? theme.colors.gray;
 
   const primary = findings[0];
   const isMissing = findings.some(
@@ -30,16 +41,20 @@ export function Tooth({ toothNumber, findings, selected, onSelect }: ToothProps)
   const meta = primary ? investigationFinding(primary.type) : null;
   const hasFinding = findings.length > 0;
 
+  const bodyBg = dark ? theme.colors.dark[7] : theme.white;
+  const neutral = dark ? theme.colors.dark[3] : theme.colors.gray[5];
+  const faint = dark ? theme.colors.dark[4] : theme.colors.gray[3];
+  const rootBg = dark ? theme.colors.dark[6] : theme.colors.gray[1];
+  const xMark = dark ? theme.colors.dark[2] : theme.colors.gray[6];
+
   const stroke = selected
-    ? "var(--mantine-color-teal-6)"
+    ? theme.colors.teal[6]
     : hovered
-      ? "var(--mantine-color-teal-4)"
-      : "var(--mantine-color-gray-5)";
+      ? theme.colors.teal[4]
+      : neutral;
   const strokeWidth = selected ? 2.5 : 1.4;
   const fill =
-    hasFinding && meta && !isMissing
-      ? `var(--mantine-color-${meta.color}-1)`
-      : "var(--mantine-color-body)";
+    hasFinding && meta && !isMissing ? palette(meta.color)[1] : bodyBg;
 
   const label =
     findings.length === 0
@@ -72,7 +87,7 @@ export function Tooth({ toothNumber, findings, selected, onSelect }: ToothProps)
         {/* root */}
         <path
           d={`M7 ${CROWN_H} L4 ${CROWN_H + ROOT_H} L${W - 4} ${CROWN_H + ROOT_H} L${W - 7} ${CROWN_H} Z`}
-          fill="var(--mantine-color-gray-1)"
+          fill={rootBg}
           stroke={stroke}
           strokeWidth={1}
         />
@@ -91,14 +106,14 @@ export function Tooth({ toothNumber, findings, selected, onSelect }: ToothProps)
         {/* subtle 5-zone cross */}
         <path
           d={`M2 ${CROWN_H / 2 + 1} H${W - 2} M${W / 2} 2 V${CROWN_H}`}
-          stroke="var(--mantine-color-gray-3)"
+          stroke={faint}
           strokeWidth={0.75}
         />
 
         {isMissing ? (
           <path
             d={`M8 8 L${W - 8} ${CROWN_H - 6} M${W - 8} 8 L8 ${CROWN_H - 6}`}
-            stroke="var(--mantine-color-gray-6)"
+            stroke={xMark}
             strokeWidth={2}
           />
         ) : meta ? (
@@ -109,7 +124,7 @@ export function Tooth({ toothNumber, findings, selected, onSelect }: ToothProps)
             dominantBaseline="central"
             fontSize={11}
             fontWeight={700}
-            fill={`var(--mantine-color-${meta.color}-8)`}
+            fill={palette(meta.color)[dark ? 4 : 8]}
           >
             {meta.abbrev}
           </text>
@@ -117,12 +132,7 @@ export function Tooth({ toothNumber, findings, selected, onSelect }: ToothProps)
 
         {findings.length > 1 ? (
           <>
-            <circle
-              cx={W - 5}
-              cy={6}
-              r={6}
-              fill="var(--mantine-color-teal-7)"
-            />
+            <circle cx={W - 5} cy={6} r={6} fill={theme.colors.teal[7]} />
             <text
               x={W - 5}
               y={6}

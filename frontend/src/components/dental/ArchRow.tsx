@@ -30,6 +30,7 @@ export function ArchRow({
 
   return (
     <Box
+      className="arch-row"
       style={{
         display: "flex",
         gap,

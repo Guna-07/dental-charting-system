@@ -16,3 +16,53 @@ body,
   background: var(--mantine-color-gray-4);
   border-radius: 6px;
 }
+
+/* While a chart is being exported to an image, let horizontally-scrolling
+   regions expand to their full width so nothing is clipped in the snapshot. */
+[data-exporting] .arch-row,
+[data-exporting] .perio-scroll {
+  overflow: visible !important;
+  width: max-content !important;
+  max-width: none !important;
+}
+[data-exporting] .no-export {
+  display: none !important;
+}
+[data-exporting] .surface-diagram-col {
+  flex-basis: 100% !important;
+  max-width: 100% !important;
+}
+/* Gingival: only the active arch is shown on screen, but both are captured. */
+.gingival-arch-hidden {
+  display: none;
+}
+[data-exporting] .gingival-arch-hidden {
+  display: block !important;
+}
+
+/* Dental: the arches are only ~650px wide but sit centred in a full-width card,
+   which makes the PNG a small chart floating in a wide empty canvas. During
+   export, shrink the box to its content and add breathing room. */
+[data-exporting].dental-chart-export {
+  width: fit-content !important;
+  max-width: none !important;
+  padding: 20px !important;
+}
+[data-exporting].dental-chart-export .mantine-Card-root {
+  width: fit-content !important;
+}
+[data-exporting].dental-chart-export .arch-row {
+  justify-content: flex-start !important;
+}
+
+/* Colour-scheme toggle: show one icon via CSS (no JS conditional -> no
+   hydration mismatch). Default / light: moon. Dark: sun. */
+.scheme-icon--dark {
+  display: none;
+}
+[data-mantine-color-scheme="dark"] .scheme-icon--light {
+  display: none;
+}
+[data-mantine-color-scheme="dark"] .scheme-icon--dark {
+  display: block;
+}

@@ -6,7 +6,7 @@ import { APP_NAME } from "@/constants";
 import { routes } from "@/app/router/routes";
 
 export function Header() {
-  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+  const { toggleColorScheme } = useMantineColorScheme();
 
   return (
     <Group h="100%" px="md" justify="space-between">
@@ -27,7 +27,12 @@ export function Header() {
         onClick={toggleColorScheme}
         aria-label="Toggle colour scheme"
       >
-        {colorScheme === "dark" ? <IconSun size={18} /> : <IconMoon size={18} />}
+        {/* Both icons are always rendered; CSS shows one based on the
+            `data-mantine-color-scheme` attribute the ColorSchemeScript sets on
+            <html>. Rendering conditionally on `colorScheme` here would produce a
+            server/client hydration mismatch when dark mode is persisted. */}
+        <IconMoon size={18} className="scheme-icon scheme-icon--light" />
+        <IconSun size={18} className="scheme-icon scheme-icon--dark" />
       </ActionIcon>
     </Group>
   );

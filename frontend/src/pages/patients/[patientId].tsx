@@ -52,13 +52,13 @@ export default function PatientProfilePage() {
         </Tabs.List>
 
         <Tabs.Panel value="overview">
-          <PatientOverviewTab patient={patient} />
+          <PatientOverviewTab patient={patient} onNavigateTab={setTab} />
         </Tabs.Panel>
         <Tabs.Panel value="dental">
-          <DentalChart patientId={patientId} />
+          <DentalChart patientId={patientId} patientAge={patient.age} />
         </Tabs.Panel>
         <Tabs.Panel value="surface">
-          <SurfaceChart patientId={patientId} />
+          <SurfaceChart patientId={patientId} patientAge={patient.age} />
         </Tabs.Panel>
         <Tabs.Panel value="gingival">
           <GingivalChart patientId={patientId} />
