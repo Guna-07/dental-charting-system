@@ -415,6 +415,10 @@ Built as an assignment, so:
 * **One finding per tooth surface** (use "Other" + a note for anything else).
 * **Chart writes are last-write-wins at tooth granularity** — no optimistic
   locking or conflict detection.
+* **No chart history** — only the current state of each chart is kept; a save
+  overwrites the previous values for that tooth, so past work isn't visible.
+  Planned — see *Chart history / versioning* under
+  [Possible Future Improvements](#possible-future-improvements).
 * **Response schemas are read-tolerant** — a patient whose stored data predates a
   stricter rule (e.g. a short phone number) still lists and opens, but editing
   that patient requires fixing the field first.
@@ -427,11 +431,20 @@ Built as an assignment, so:
 
 ## Possible Future Improvements
 
+* **Chart history / versioning** — today each chart stores only its *current*
+  state; every save overwrites the previous values for that tooth. A future
+  version would keep a full history so a clinician can see **what was done to
+  each tooth over time** — a dated timeline of findings and periodontal
+  recordings per chart, the ability to open any past version read-only, and a
+  "compare recordings" view (e.g. this visit's probing depths vs. the last).
+  Implementation sketch: append-only `*_history` collections (or embedded
+  `revisions[]`), each write also recording a snapshot + `recorded_at` /
+  `recorded_by`, with new `GET .../history` endpoints and a History tab in the
+  patient profile.
 * Authentication and role-based access; dentist / staff accounts
 * Treatment planning and appointment management
 * Clinical notes and dental image / X-ray uploads
 * More detailed tooth anatomy and more advanced periodontal charting
-* Audit history for chart changes; "compare recordings" across dates
 * Primary-dentition support in the gingival chart
 * Frontend automated tests and backend integration tests
 * Docker-based local setup and deployment configuration
